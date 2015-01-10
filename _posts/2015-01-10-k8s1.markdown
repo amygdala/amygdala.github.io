@@ -1,0 +1,8 @@
+---
+layout: post
+title:  "MySQL and WordPress on Kubernetes"
+categories: kubernetes
+---
+
+Some filler text...
+
