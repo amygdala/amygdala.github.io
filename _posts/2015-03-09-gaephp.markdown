@@ -1,0 +1,24 @@
+---
+layout: post
+title:  "Updates to the Google App Engine PHP Runtime"
+categories:
+- gae
+- php
+date: 2015-03-09
+---
+
+The [1.9.18 Google App Engine release](https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes) has added new capabilities to the [App Engine PHP runtime](https://cloud.google.com/appengine/docs/php). 
+It's now possible to [select PHP 5.5](https://cloud.google.com/appengine/docs/php/#PHP_Selecting_the_PHP_runtime
+) as your runtime, and a number of useful new features are supported if you do so.
+
+The **cURL** extension is now [supported](https://cloud.google.com/appengine/docs/php/#PHP_Enabled_extensions).
+We've also provided a [cURL implementation using the standard HTTP streams API](https://cloud.google.com/appengine/docs/php/config/php_ini#GAE_directives) for apps that do not need the complete cURL extension.
+The **ImageMagick** extension is now supported for PHP 5.5 apps as well.
+
+We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
+In the new PHP 5.5 runtime, you can now use the **`sys_get_temp_dir()`, `tmpfile()` and `tempnam()`** functions to [create temporary files](https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/).
+
+The PHP 5.5. runtime also gives you the ability to [**upload files directly to your application**](https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/), without the need to upload the files to [Google Cloud Storage](https://cloud.google.com/storage/docs) first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.
+
+See the linked-to posts, from the unoffical "Tips and Tricks for PHP on Google App Engine" [blog](https://gae-php-tips.appspot.com), for more detail, and the App Engine [release notes](https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes) for more detail on what has changed.
+

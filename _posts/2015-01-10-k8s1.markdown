@@ -208,8 +208,6 @@ desiredState:
             # This GCE PD must already exist and be formatted ext4
             pdName: wordpress-disk
             fsType: ext4
-# Important: these labels need to match the selector above
-# The api server enforces this constraint.
 labels:
   name: frontend
 kind: Pod
@@ -261,7 +259,7 @@ Note also that we've set the service port to 3000.  We'll return to that shortly
 Start the service:
 
 {% highlight bash %}
-$ <kubernetes>/cluster/kubectl.sh create -f frontend-service.yaml
+$ <kubernetes>/cluster/kubectl.sh create -f wordpress-service.yaml
 {% endhighlight %}
 
 and see it in the list of services:
