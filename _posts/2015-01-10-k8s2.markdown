@@ -2,6 +2,9 @@
 layout: post
 title:  "Tutorial: Real-time analysis of Twitter data using Kubernetes, Redis and BigQuery"
 categories: kubernetes
+tags:
+- kubernetes
+- bigquery
 date: 2015-01-11
 ---
 

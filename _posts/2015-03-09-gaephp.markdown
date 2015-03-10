@@ -4,6 +4,9 @@ title:  "Updates to the Google App Engine PHP Runtime"
 categories:
 - gae
 - php
+tags:
+- php
+- gae
 date: 2015-03-09
 ---
 

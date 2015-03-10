@@ -13,3 +13,9 @@ layout: default
   </article>
 
 </div>
+
+Tags:
+  {% for tag in page.tags %}
+    <a href="/tag/{{tag}}.html">{{tag}}</a>&nbsp
+  {% endfor %}
+</ul>
