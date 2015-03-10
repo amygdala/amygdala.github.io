@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Persistent Installation of MySQL and WordPress on Kubernetes</title>
+  <meta name="description" content="This post describes how to run a persistent installation of Wordpress on Kubernetes.">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://amygdala.github.io/kubernetes/2015/01/13/k8s1.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Amy on GCP</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Persistent Installation of MySQL and WordPress on Kubernetes</h1>
+    <p class="post-meta">Jan 13, 2015</p>
+  </header>
+
+  <article class="post-content">
+    <p>This post describes how to run a persistent installation of <a href="https://wordpress.org/">Wordpress</a> on <a href="https://github.com/GoogleCloudPlatform/kubernetes">Kubernetes</a>.</p>
+
+<p>We’ll use the <a href="https://registry.hub.docker.com/_/mysql/">mysql</a> and <a href="https://registry.hub.docker.com/_/wordpress/">wordpress</a> official <a href="https://www.docker.com/">Docker</a> images for this installation. (The wordpress image includes an Apache server).</p>
+
+<p>We’ll create two Kubernetes <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md">pods</a> to run mysql and wordpress, both with associated <a href="https://cloud.google.com/compute/docs/disks">persistent disks</a>, then set up a Kubernetes <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md">service</a> to front each pod.</p>
+
+<p>This example demonstrates several useful things, including: how to set up and use persistent disks with Kubernetes pods; how to define Kubernetes services to leverage docker-links-compatible service environment variables; and use of an external load balancer to expose the wordpress service externally and make it transparent to the user if the wordpress pod moves to a different cluster node.</p>
+
+<p>Some of the post details, such as the Persistent Disk setup, require that Kubernetes is running on <a href="https://cloud.google.com/compute/">Google Compute Engine</a>.</p>
+
+<h2 id="install-gcloud-and-start-up-a-kubernetes-cluster">Install gcloud and Start up a Kubernetes Cluster</h2>
+
+<p>First, if you have not already done so, <a href="https://cloud.google.com/compute/docs/quickstart">create</a> a <a href="https://cloud.google.com/">Google Cloud Platform</a> project, and install the <a href="https://cloud.google.com/sdk/">gcloud SDK</a>.</p>
+
+<p>Then, set the gcloud default project name to point to the project you want to use for your Kubernetes cluster:</p>
+
+<p><code>
+gcloud config set project &lt;project-name&gt;
+</code></p>
+
+<p>Next, grab the Kubernetes <a href="https://github.com/GoogleCloudPlatform/kubernetes/releases">release binary</a>.  (This example was tested with release 0.8.1).</p>
+
+<p>Then, start up a <a href="https://github.com/GoogleCloudPlatform/kubernetes">Kubernetes</a> <a href="...">cluster</a> as <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/getting-started-guides/gce.md">described here</a>.</p>
+
+<p><code>
+$ &lt;kubernetes&gt;/cluster/kube-up.sh
+</code></p>
+
+<p>where <code>&lt;kubernetes&gt;</code> is the path to your Kubernetes installation.</p>
+
+<h2 id="create-and-format-two-persistent-disks">Create and format two persistent disks</h2>
+
+<p>For this WordPress installation, we’re going to configure our Kubernetes <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md">pods</a> to use <a href="https://cloud.google.com/compute/docs/disks">persistent disks</a>. This means that we can preserve installation state across pod shutdown and re-startup.</p>
+
+<p>Before doing anything else, we’ll create and format the persistent disks that we’ll use for the installation: one for the mysql pod, and one for the wordpress pod.
+The general series of steps required is as described <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/volumes.md">here</a>, where $ZONE is the zone where your cluster is running, and $DISK_SIZE is specified as, e.g. ‘500GB’.  In future, this process will be more streamlined.</p>
+
+<p>So for the two disks used in this example, do the following.
+First create and format the mysql disk, setting the disk size to meet your needs:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash">gcloud compute disks create --size<span class="o">=</span><span class="nv">$DISK_SIZE</span> --zone<span class="o">=</span><span class="nv">$ZONE</span> mysql-disk
+gcloud compute instances attach-disk --zone<span class="o">=</span><span class="nv">$ZONE</span> --disk<span class="o">=</span>mysql-disk --device-name temp-data kubernetes-master
+gcloud compute ssh --zone<span class="o">=</span><span class="nv">$ZONE</span> kubernetes-master <span class="se">\</span>
+  --command <span class="s2">&quot;sudo mkdir /mnt/tmp &amp;&amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;</span>
+gcloud compute instances detach-disk --zone<span class="o">=</span><span class="nv">$ZONE</span> --disk mysql-disk kubernetes-master</code></pre></div>
+
+<p>Then create and format the wordpress disk.  Note that you may not want as large a disk size for the wordpress code as for the mysql disk.</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash">gcloud compute disks create --size<span class="o">=</span><span class="nv">$DISK_SIZE</span> --zone<span class="o">=</span><span class="nv">$ZONE</span> wordpress-disk
+gcloud compute instances attach-disk --zone<span class="o">=</span><span class="nv">$ZONE</span> --disk<span class="o">=</span><span class="nv">$wordpress</span>-disk --device-name temp-data kubernetes-master
+gcloud compute ssh --zone<span class="o">=</span><span class="nv">$ZONE</span> kubernetes-master <span class="se">\</span>
+  --command <span class="s2">&quot;sudo mkdir /mnt/tmp &amp;&amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;</span>
+gcloud compute instances detach-disk --zone<span class="o">=</span><span class="nv">$ZONE</span> --disk wordpress-disk kubernetes-master</code></pre></div>
+
+<h2 id="start-the-mysql-pod-and-service">Start the Mysql Pod and Service</h2>
+
+<p>Now that the persistent disks are defined, the Kubernetes pods can be launched.  We’ll start with the mysql pod.</p>
+
+<h3 id="start-the-mysql-pod">Start the Mysql pod</h3>
+
+<p>Copy and then edit this <a href="https://gist.github.com/amygdala/88a8740e3946ba55125b">mysql.yaml</a> pod definition to use the database password you specify.  <code>mysql.yaml</code> looks like this:</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">apiVersion</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+<span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+<span class="l-Scalar-Plain">desiredState</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">manifest</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">version</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+    <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+    <span class="l-Scalar-Plain">containers</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+        <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+        <span class="l-Scalar-Plain">env</span><span class="p-Indicator">:</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">MYSQL_ROOT_PASSWORD</span>
+           <span class="c1"># change this</span>
+            <span class="l-Scalar-Plain">value</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">yourpassword</span>
+        <span class="l-Scalar-Plain">cpu</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">100</span>
+        <span class="l-Scalar-Plain">ports</span><span class="p-Indicator">:</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">containerPort</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">3306</span>
+        <span class="l-Scalar-Plain">volumeMounts</span><span class="p-Indicator">:</span>
+            <span class="c1"># name must match the volume name below</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql-persistent-storage</span>
+            <span class="c1"># mount path within the container</span>
+            <span class="l-Scalar-Plain">mountPath</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/var/lib/mysql</span>
+    <span class="l-Scalar-Plain">volumes</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql-persistent-storage</span>
+        <span class="l-Scalar-Plain">source</span><span class="p-Indicator">:</span>
+          <span class="l-Scalar-Plain">persistentDisk</span><span class="p-Indicator">:</span>
+            <span class="c1"># This GCE PD must already exist and be formatted ext4</span>
+            <span class="l-Scalar-Plain">pdName</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql-disk</span>
+            <span class="l-Scalar-Plain">fsType</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">ext4</span>
+<span class="l-Scalar-Plain">labels</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+<span class="l-Scalar-Plain">kind</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Pod</span></code></pre></div>
+
+<p>Note that we’ve defined a volume mount for <code>/var/lib/mysql</code>, and specified a volume that uses the persistent disk (<code>mysql-disk</code>) that you created.
+Once you’ve edited the file to set your database password, create the pod as follows, where <code>&lt;kubernetes&gt;</code> is the path to your Kubernetes installation:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh create -f mysql.yaml</code></pre></div>
+
+<p>It may take a short period before the new pod reaches the <code>Running</code> state.
+List all pods to see the status of this new pod and the cluster node that it is running on:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh get pods</code></pre></div>
+
+<h4 id="check-the-running-pod-on-the-compute-instance">Check the running pod on the Compute instance</h4>
+
+<p>You can take a look at the logs for a pod by using <code>kubectl.sh log</code>.  For example:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh log mysql</code></pre></div>
+
+<p>If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run <code>sudo -s</code>, then <code>docker ps -a</code> to see all the containers.  You can then inspect the logs of containers that have exited, via <code>docker logs &lt;container_id&gt;</code>.  (You can also find some relevant logs under <code>/var/log</code>, e.g. <code>docker.log</code> and <code>kubelet.log</code>).</p>
+
+<h3 id="start-the-myql-service">Start the Myql service</h3>
+
+<p>We’ll define and start a <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md">service</a> that lets other pods access the mysql database on a known port and host.
+We will specifically name the service <code>mysql</code>.  This will let us leverage the support for <a href="https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work">Docker-links-compatible</a> serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named <code>mysql</code>, as you can see in the “How to use this image” section on the wordpress docker hub <a href="https://registry.hub.docker.com/_/wordpress/">page</a>.</p>
+
+<p>So if we label our Kubernetes mysql service <code>mysql</code>, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.</p>
+
+<p>Copy the <a href="https://gist.github.com/amygdala/9f88e2ea9c37d26a8a68">mysql-service.yaml</a> file, which looks like this:</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">kind</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Service</span>
+<span class="l-Scalar-Plain">apiVersion</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+<span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+<span class="c1"># the port that this service should serve on</span>
+<span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">3306</span>
+<span class="c1"># just like the selector in the replication controller,</span>
+<span class="c1"># but this time it identifies the set of pods to load balance</span>
+<span class="c1"># traffic to.</span>
+<span class="l-Scalar-Plain">selector</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span>
+<span class="c1"># the container on each pod to connect to, can be a name</span>
+<span class="c1"># (e.g. &#39;www&#39;) or a number (e.g. 80)</span>
+<span class="l-Scalar-Plain">containerPort</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">3306</span>
+<span class="l-Scalar-Plain">labels</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">mysql</span></code></pre></div>
+
+<p>Then, start the service like this:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh create -f mysql-service.yaml</code></pre></div>
+
+<p>You can see what services are running via:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh get services</code></pre></div>
+
+<h2 id="start-wordpress-pod-and-service">Start WordPress Pod and Service</h2>
+
+<p>Once the mysql service is up, start the wordpress pod.</p>
+
+<p>Copy this pod config file: <a href="https://gist.github.com/amygdala/ccf107f940054ae5d740">wordpress.yaml</a> and edit the database password to be the same as you used in <code>mysql.yaml</code>. Note that this config file also defines a volume, this one using the <code>wordpress-disk</code> persistent disk that you created.</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">apiVersion</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+<span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress</span>
+<span class="l-Scalar-Plain">desiredState</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">manifest</span><span class="p-Indicator">:</span>
+    <span class="l-Scalar-Plain">version</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+    <span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">frontendController</span>
+    <span class="l-Scalar-Plain">containers</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress</span>
+        <span class="l-Scalar-Plain">image</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress</span>
+        <span class="l-Scalar-Plain">ports</span><span class="p-Indicator">:</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">containerPort</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">80</span>
+        <span class="l-Scalar-Plain">volumeMounts</span><span class="p-Indicator">:</span>
+            <span class="c1"># name must match the volume name below</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress-persistent-storage</span>
+            <span class="c1"># mount path within the container</span>
+            <span class="l-Scalar-Plain">mountPath</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">/var/www/html</span>
+        <span class="l-Scalar-Plain">env</span><span class="p-Indicator">:</span>
+          <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">WORDPRESS_DB_PASSWORD</span>
+            <span class="c1"># change this</span>
+            <span class="l-Scalar-Plain">value</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">yourpassword</span>
+    <span class="l-Scalar-Plain">volumes</span><span class="p-Indicator">:</span>
+      <span class="p-Indicator">-</span> <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress-persistent-storage</span>
+        <span class="l-Scalar-Plain">source</span><span class="p-Indicator">:</span>
+          <span class="c1"># emptyDir: {}</span>
+          <span class="l-Scalar-Plain">persistentDisk</span><span class="p-Indicator">:</span>
+            <span class="c1"># This GCE PD must already exist and be formatted ext4</span>
+            <span class="l-Scalar-Plain">pdName</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">wordpress-disk</span>
+            <span class="l-Scalar-Plain">fsType</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">ext4</span>
+<span class="l-Scalar-Plain">labels</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">frontend</span>
+<span class="l-Scalar-Plain">kind</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Pod</span></code></pre></div>
+
+<p>Create the pod:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh create -f wordpress.yaml</code></pre></div>
+
+<p>And list the pods to check that the status of the new pod changes to <code>Running</code>.  As above, this might take a minute.</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh get pods</code></pre></div>
+
+<h3 id="start-the-wordpress-service">Start the WordPress service</h3>
+
+<p>Once the wordpress pod is running, start its service.  Copy
+<a href="https://gist.github.com/amygdala/72128b4624a7c9317a45">wordpress-service.yaml</a>.</p>
+
+<p>The service config file looks like this:</p>
+
+<div class="highlight"><pre><code class="language-yaml" data-lang="yaml"><span class="l-Scalar-Plain">kind</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">Service</span>
+<span class="l-Scalar-Plain">apiVersion</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">v1beta1</span>
+<span class="l-Scalar-Plain">id</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">frontend</span>
+<span class="c1"># the port that this service should serve on</span>
+<span class="l-Scalar-Plain">port</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">3000</span>
+<span class="c1"># just like the selector in the replication controller,</span>
+<span class="c1"># but this time it identifies the set of pods to load balance</span>
+<span class="c1"># traffic to.</span>
+<span class="l-Scalar-Plain">selector</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">frontend</span>
+<span class="c1"># the container on each pod to connect to, can be a name</span>
+<span class="c1"># (e.g. &#39;www&#39;) or a number (e.g. 80)</span>
+<span class="l-Scalar-Plain">containerPort</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">80</span>
+<span class="l-Scalar-Plain">labels</span><span class="p-Indicator">:</span>
+  <span class="l-Scalar-Plain">name</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">frontend</span>
+<span class="l-Scalar-Plain">createExternalLoadBalancer</span><span class="p-Indicator">:</span> <span class="l-Scalar-Plain">true</span></code></pre></div>
+
+<p>Note the <code>createExternalLoadBalancer</code> setting.  This will set up the wordpress service behind an external IP.
+<code>createExternalLoadBalancer</code> only works on GCE.</p>
+
+<p>Note also that we’ve set the service port to 3000.  We’ll return to that shortly.</p>
+
+<p>Start the service:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh create -f wordpress-service.yaml</code></pre></div>
+
+<p>and see it in the list of services:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh get services</code></pre></div>
+
+<p>Then, find the external IP for your WordPress service by listing the forwarding rules for your project:</p>
+
+<p><code>
+$ gcloud compute forwarding-rules list
+</code></p>
+
+<p>Look for the rule called <code>frontend</code>, which is what we named the wordpress service, and note its IP address.</p>
+
+<h2 id="visit-your-new-wordpress-blog">Visit your new WordPress blog</h2>
+
+<p>To access your new installation, you’ll first need to open up port 3000 (the port specified in the wordpress service config) in the firewall. Do this via:</p>
+
+<p><code>
+$ gcloud compute firewall-rules create wordpress --allow tcp:3000
+</code></p>
+
+<p>This will define a firewall rule called <code>wordpress</code> that opens port 3000 in the default network for your project.</p>
+
+<p>Now, we can visit the running WordPress app.
+Use the external IP that you obtained above, and visit it on port 3000:</p>
+
+<p><code>
+http://&lt;external_ip&gt;:3000
+</code></p>
+
+<p>You should see the familiar WordPress init page.</p>
+
+<h2 id="take-down-and-restart-your-blog">Take down and restart your blog</h2>
+
+<p>Set up your WordPress blog and play around with it a bit.  Then, take down its pods and bring them back up again. Because you used persistent disks, your blog state will be preserved.</p>
+
+<p>If you are just experimenting, you can take down and bring up only the pods:</p>
+
+<div class="highlight"><pre><code class="language-bash" data-lang="bash"><span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh delete -f wordpress.yaml
+<span class="nv">$ </span>&lt;kubernetes&gt;/cluster/kubectl.sh delete -f mysql.yaml</code></pre></div>
+
+<p>When you restart the pods again (using the <code>create</code> operation as described above), their services will pick up the new pods based on their labels.</p>
+
+<p>If you want to shut down the entire app installation, you can delete the services as well.</p>
+
+<p>If you are ready to turn down your Kubernetes cluster altogether, run:</p>
+
+<p><code>
+$ &lt;kubernetes&gt;/cluster/kube-down.sh
+</code></p>
+
+
+  </article>
+
+</div>
+
+Tags:
+  
+</ul>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <!-- <h2 class="footer-heading">Amy on GCP</h2> -->
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <!-- <li>Amy on GCP</li> -->
+          <li><a href="mailto:"></a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/amygdala">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/amygdala">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>

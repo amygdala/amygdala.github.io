@@ -1,0 +1,348 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Amy on GCP</title>
+    <description></description>
+    <link>http://amygdala.github.io/</link>
+    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Tue, 10 Mar 2015 12:19:43 -0700</pubDate>
+    <lastBuildDate>Tue, 10 Mar 2015 12:19:43 -0700</lastBuildDate>
+    <generator>Jekyll v2.4.0</generator>
+    
+      <item>
+        <title>Updates to the Google App Engine PHP Runtime</title>
+        <description>&lt;p&gt;The &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;1.9.18 Google App Engine release&lt;/a&gt; has added new capabilities to the &lt;a href=&quot;https://cloud.google.com/appengine/docs/php&quot;&gt;App Engine PHP runtime&lt;/a&gt;. 
+It’s now possible to &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Selecting_the_PHP_runtime&quot;&gt;select PHP 5.5&lt;/a&gt; as your runtime, and a number of useful new features are supported if you do so.&lt;/p&gt;
+
+&lt;p&gt;The &lt;strong&gt;cURL&lt;/strong&gt; extension is now &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Enabled_extensions&quot;&gt;supported&lt;/a&gt;.
+We’ve also provided a &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/config/php_ini#GAE_directives&quot;&gt;cURL implementation using the standard HTTP streams API&lt;/a&gt; for apps that do not need the complete cURL extension.
+The &lt;strong&gt;ImageMagick&lt;/strong&gt; extension is now supported for PHP 5.5 apps as well.&lt;/p&gt;
+
+&lt;p&gt;We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
+In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code&gt;tmpfile()&lt;/code&gt; and &lt;code&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The PHP 5.5. runtime also gives you the ability to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/&quot;&gt;&lt;strong&gt;upload files directly to your application&lt;/strong&gt;&lt;/a&gt;, without the need to upload the files to &lt;a href=&quot;https://cloud.google.com/storage/docs&quot;&gt;Google Cloud Storage&lt;/a&gt; first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.&lt;/p&gt;
+
+&lt;p&gt;See the linked-to posts, from the unoffical “Tips and Tricks for PHP on Google App Engine” &lt;a href=&quot;https://gae-php-tips.appspot.com&quot;&gt;blog&lt;/a&gt;, for more detail, and the App Engine &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;release notes&lt;/a&gt; for more detail on what has changed.&lt;/p&gt;
+
+</description>
+        <pubDate>Mon, 09 Mar 2015 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</guid>
+        
+        <category>php</category>
+        
+        <category>gae</category>
+        
+        
+        <category>gae</category>
+        
+        <category>php</category>
+        
+      </item>
+    
+      <item>
+        <title>Persistent Installation of MySQL and WordPress on Kubernetes</title>
+        <description>&lt;p&gt;This post describes how to run a persistent installation of &lt;a href=&quot;https://wordpress.org/&quot;&gt;Wordpress&lt;/a&gt; on &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;We’ll use the &lt;a href=&quot;https://registry.hub.docker.com/_/mysql/&quot;&gt;mysql&lt;/a&gt; and &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;wordpress&lt;/a&gt; official &lt;a href=&quot;https://www.docker.com/&quot;&gt;Docker&lt;/a&gt; images for this installation. (The wordpress image includes an Apache server).&lt;/p&gt;
+
+&lt;p&gt;We’ll create two Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md&quot;&gt;pods&lt;/a&gt; to run mysql and wordpress, both with associated &lt;a href=&quot;https://cloud.google.com/compute/docs/disks&quot;&gt;persistent disks&lt;/a&gt;, then set up a Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; to front each pod.&lt;/p&gt;
+
+&lt;p&gt;This example demonstrates several useful things, including: how to set up and use persistent disks with Kubernetes pods; how to define Kubernetes services to leverage docker-links-compatible service environment variables; and use of an external load balancer to expose the wordpress service externally and make it transparent to the user if the wordpress pod moves to a different cluster node.&lt;/p&gt;
+
+&lt;p&gt;Some of the post details, such as the Persistent Disk setup, require that Kubernetes is running on &lt;a href=&quot;https://cloud.google.com/compute/&quot;&gt;Google Compute Engine&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;install-gcloud-and-start-up-a-kubernetes-cluster&quot;&gt;Install gcloud and Start up a Kubernetes Cluster&lt;/h2&gt;
+
+&lt;p&gt;First, if you have not already done so, &lt;a href=&quot;https://cloud.google.com/compute/docs/quickstart&quot;&gt;create&lt;/a&gt; a &lt;a href=&quot;https://cloud.google.com/&quot;&gt;Google Cloud Platform&lt;/a&gt; project, and install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;gcloud SDK&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Then, set the gcloud default project name to point to the project you want to use for your Kubernetes cluster:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+gcloud config set project &amp;lt;project-name&amp;gt;
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Next, grab the Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/releases&quot;&gt;release binary&lt;/a&gt;.  (This example was tested with release 0.8.1).&lt;/p&gt;
+
+&lt;p&gt;Then, start up a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt; &lt;a href=&quot;...&quot;&gt;cluster&lt;/a&gt; as &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/getting-started-guides/gce.md&quot;&gt;described here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
+
+&lt;h2 id=&quot;create-and-format-two-persistent-disks&quot;&gt;Create and format two persistent disks&lt;/h2&gt;
+
+&lt;p&gt;For this WordPress installation, we’re going to configure our Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md&quot;&gt;pods&lt;/a&gt; to use &lt;a href=&quot;https://cloud.google.com/compute/docs/disks&quot;&gt;persistent disks&lt;/a&gt;. This means that we can preserve installation state across pod shutdown and re-startup.&lt;/p&gt;
+
+&lt;p&gt;Before doing anything else, we’ll create and format the persistent disks that we’ll use for the installation: one for the mysql pod, and one for the wordpress pod.
+The general series of steps required is as described &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/volumes.md&quot;&gt;here&lt;/a&gt;, where $ZONE is the zone where your cluster is running, and $DISK_SIZE is specified as, e.g. ‘500GB’.  In future, this process will be more streamlined.&lt;/p&gt;
+
+&lt;p&gt;So for the two disks used in this example, do the following.
+First create and format the mysql disk, setting the disk size to meet your needs:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
+gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;mysql-disk --device-name temp-data kubernetes-master
+gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
+gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk mysql-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Then create and format the wordpress disk.  Note that you may not want as large a disk size for the wordpress code as for the mysql disk.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
+gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$wordpress&lt;/span&gt;-disk --device-name temp-data kubernetes-master
+gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
+gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk wordpress-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;start-the-mysql-pod-and-service&quot;&gt;Start the Mysql Pod and Service&lt;/h2&gt;
+
+&lt;p&gt;Now that the persistent disks are defined, the Kubernetes pods can be launched.  We’ll start with the mysql pod.&lt;/p&gt;
+
+&lt;h3 id=&quot;start-the-mysql-pod&quot;&gt;Start the Mysql pod&lt;/h3&gt;
+
+&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
+           &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;100&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;/var/lib/mysql&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-disk&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Note that we’ve defined a volume mount for &lt;code&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code&gt;mysql-disk&lt;/code&gt;) that you created.
+Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;It may take a short period before the new pod reaches the &lt;code&gt;Running&lt;/code&gt; state.
+List all pods to see the status of this new pod and the cluster node that it is running on:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h4 id=&quot;check-the-running-pod-on-the-compute-instance&quot;&gt;Check the running pod on the Compute instance&lt;/h4&gt;
+
+&lt;p&gt;You can take a look at the logs for a pod by using &lt;code&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code&gt;sudo -s&lt;/code&gt;, then &lt;code&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code&gt;/var/log&lt;/code&gt;, e.g. &lt;code&gt;docker.log&lt;/code&gt; and &lt;code&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
+
+&lt;h3 id=&quot;start-the-myql-service&quot;&gt;Start the Myql service&lt;/h3&gt;
+
+&lt;p&gt;We’ll define and start a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; that lets other pods access the mysql database on a known port and host.
+We will specifically name the service &lt;code&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;So if we label our Kubernetes mysql service &lt;code&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
+
+&lt;p&gt;Copy the &lt;a href=&quot;https://gist.github.com/amygdala/9f88e2ea9c37d26a8a68&quot;&gt;mysql-service.yaml&lt;/a&gt; file, which looks like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Then, start the service like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;You can see what services are running via:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h2 id=&quot;start-wordpress-pod-and-service&quot;&gt;Start WordPress Pod and Service&lt;/h2&gt;
+
+&lt;p&gt;Once the mysql service is up, start the wordpress pod.&lt;/p&gt;
+
+&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontendController&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;/var/www/html&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
+    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;c1&quot;&gt;# emptyDir: {}&lt;/span&gt;
+          &lt;span class=&quot;l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-disk&lt;/span&gt;
+            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Create the pod:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;h3 id=&quot;start-the-wordpress-service&quot;&gt;Start the WordPress service&lt;/h3&gt;
+
+&lt;p&gt;Once the wordpress pod is running, start its service.  Copy
+&lt;a href=&quot;https://gist.github.com/amygdala/72128b4624a7c9317a45&quot;&gt;wordpress-service.yaml&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The service config file looks like this:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3000&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;l-Scalar-Plain&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Note the &lt;code&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
+&lt;code&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
+
+&lt;p&gt;Note also that we’ve set the service port to 3000.  We’ll return to that shortly.&lt;/p&gt;
+
+&lt;p&gt;Start the service:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;and see it in the list of services:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;Then, find the external IP for your WordPress service by listing the forwarding rules for your project:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+$ gcloud compute forwarding-rules list
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Look for the rule called &lt;code&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
+
+&lt;h2 id=&quot;visit-your-new-wordpress-blog&quot;&gt;Visit your new WordPress blog&lt;/h2&gt;
+
+&lt;p&gt;To access your new installation, you’ll first need to open up port 3000 (the port specified in the wordpress service config) in the firewall. Do this via:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+$ gcloud compute firewall-rules create wordpress --allow tcp:3000
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;This will define a firewall rule called &lt;code&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
+
+&lt;p&gt;Now, we can visit the running WordPress app.
+Use the external IP that you obtained above, and visit it on port 3000:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+http://&amp;lt;external_ip&amp;gt;:3000
+&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;You should see the familiar WordPress init page.&lt;/p&gt;
+
+&lt;h2 id=&quot;take-down-and-restart-your-blog&quot;&gt;Take down and restart your blog&lt;/h2&gt;
+
+&lt;p&gt;Set up your WordPress blog and play around with it a bit.  Then, take down its pods and bring them back up again. Because you used persistent disks, your blog state will be preserved.&lt;/p&gt;
+
+&lt;p&gt;If you are just experimenting, you can take down and bring up only the pods:&lt;/p&gt;
+
+&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
+&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+
+&lt;p&gt;When you restart the pods again (using the &lt;code&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
+
+&lt;p&gt;If you want to shut down the entire app installation, you can delete the services as well.&lt;/p&gt;
+
+&lt;p&gt;If you are ready to turn down your Kubernetes cluster altogether, run:&lt;/p&gt;
+
+&lt;p&gt;&lt;code&gt;
+$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
+&lt;/code&gt;&lt;/p&gt;
+
+</description>
+        <pubDate>Tue, 13 Jan 2015 00:00:00 -0800</pubDate>
+        <link>http://amygdala.github.io/kubernetes/2015/01/13/k8s1.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubernetes/2015/01/13/k8s1.html</guid>
+        
+        
+        <category>kubernetes</category>
+        
+      </item>
+    
+      <item>
+        <title>Tutorial: Real-time analysis of Twitter data using Kubernetes, Redis and BigQuery</title>
+        <description>&lt;p&gt;This is a &lt;a href=&quot;https://cloud.google.com/solutions/real-time-analysis/kubernetes-redis-bigquery&quot;&gt;tutorial&lt;/a&gt; and &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/&quot;&gt;sample app&lt;/a&gt; showing how to use &lt;a href=&quot;http://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt; and &lt;a href=&quot;https://cloud.google.com/bigquery/&quot;&gt;BigQuery&lt;/a&gt;, along with Redis, to support real-time analysis of Twitter data.&lt;/p&gt;
+</description>
+        <pubDate>Sun, 11 Jan 2015 00:00:00 -0800</pubDate>
+        <link>http://amygdala.github.io/kubernetes/2015/01/11/k8s2.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubernetes/2015/01/11/k8s2.html</guid>
+        
+        <category>kubernetes</category>
+        
+        <category>bigquery</category>
+        
+        
+        <category>kubernetes</category>
+        
+      </item>
+    
+  </channel>
+</rss>
