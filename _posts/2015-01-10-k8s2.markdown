@@ -5,7 +5,11 @@ categories: kubernetes
 tags:
 - kubernetes
 - bigquery
+- redis
+- twitter
 date: 2015-01-11
 ---
 
 This is a [tutorial](https://cloud.google.com/solutions/real-time-analysis/kubernetes-redis-bigquery) and [sample app](https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/) showing how to use [Kubernetes](http://kubernetes.io/) and [BigQuery](https://cloud.google.com/bigquery/), along with Redis, to support real-time analysis of Twitter data.
+
+<img src="/images/k8s_redis_tw_bq.png" width="600" alt="Architecture of app">
