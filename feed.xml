@@ -5,9 +5,41 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Thu, 12 Mar 2015 09:56:11 -0700</pubDate>
-    <lastBuildDate>Thu, 12 Mar 2015 09:56:11 -0700</lastBuildDate>
+    <pubDate>Wed, 20 May 2015 11:09:16 -0700</pubDate>
+    <lastBuildDate>Wed, 20 May 2015 11:09:16 -0700</lastBuildDate>
     <generator>Jekyll v2.4.0</generator>
+    
+      <item>
+        <title>New sample repos for Symfony and Laravel with the Google App Engine PHP Runtime</title>
+        <description>&lt;p&gt;After the recent &lt;a href=&quot;http://amygdala.github.io/gae/php/2015/03/09/gaephp.html&quot;&gt;updates to the Google App Engine PHP Runtime&lt;/a&gt;, we are creating GAE forks for some of the popular PHP framework starter apps.  These forks contain the modifications for running these apps on App Engine.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/symfony-standard&quot;&gt;This repository&lt;/a&gt; contains a modified Symfony Standard Edition Starter app for Google App Engine.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/laravel&quot;&gt;This repository&lt;/a&gt; contains a modified Laravel Starter app for Google App Engine.&lt;/p&gt;
+
+&lt;p&gt;To get started with either one, see the README in the repo.&lt;/p&gt;
+
+&lt;p&gt;You’ll want to first create a Google Cloud project if you don’t already have one. You can do that from &lt;a href=&quot;https://console.developers.google.com/start/appengine&quot;&gt;this page&lt;/a&gt; if you like.  (Note that there is a &lt;a href=&quot;https://console.developers.google.com/billing/freetrial&quot;&gt;free trial&lt;/a&gt; available).&lt;/p&gt;
+
+&lt;p&gt;Then, if you’re not familiar with PHP on App Engine, you might want to follow the &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/gettingstarted/introduction&quot;&gt;PHP Tutorial&lt;/a&gt; first.&lt;/p&gt;
+
+&lt;p&gt;We’re looking forward to your feedback (and/or pull requests)!&lt;/p&gt;
+
+</description>
+        <pubDate>Wed, 20 May 2015 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</guid>
+        
+        <category>php</category>
+        
+        <category>gae</category>
+        
+        
+        <category>gae</category>
+        
+        <category>php</category>
+        
+      </item>
     
       <item>
         <title>Real-time analysis of Twitter data using Kubernetes, PubSub and BigQuery</title>
