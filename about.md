@@ -4,4 +4,5 @@ title: About
 permalink: /about/
 ---
 
-TBD.
+I work with the [Google Cloud Platform](https://cloud.google.com/),
+in Developer Relations.
