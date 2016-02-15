@@ -6,11 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Real-time analysis of Twitter data using Kubernetes, PubSub and BigQuery</title>
-  <meta name="description" content="Google Cloud PubSub provides many-to-many, asynchronous messaging that decouples senders and receivers. It allows for secure and highly available communicati...">
+  <title>Amy on GCP</title>
+  <meta name="description" content="">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://amygdala.github.io/kubernetes/2015/03/11/pubsub.html">
+  <link rel="canonical" href="http://amygdala.github.io/tag/Apache_Beam.html">
   <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
 </head>
 
@@ -74,45 +74,16 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="post">
+        <h2>Apache_Beam</h2>
+<ul>
 
-  <header class="post-header">
-    <h1 class="post-title">Real-time analysis of Twitter data using Kubernetes, PubSub and BigQuery</h1>
-    <p class="post-meta">Mar 11, 2015</p>
-  </header>
+  <li><a href="/dataflow/2016/02/15/dataflow.html">Cloud Dataflow News</a> (15 Feb 2016 | Tags: <a href="/tag/Apache_Beam.html" rel="tag">Apache_Beam</a>, <a href="/tag/big_data.html" rel="tag">big_data</a>, <a href="/tag/data_analysis.html" rel="tag">data_analysis</a>)</li>
 
-  <article class="post-content">
-    <p><a href="https://cloud.google.com/pubsub/overview">Google Cloud <strong>PubSub</strong></a> provides many-to-many, asynchronous messaging that decouples senders and receivers. It allows for secure and highly available communication between independently written applications and delivers low-latency, durable messaging.
-It has just gone to Beta, and is available for anyone to try.</p>
-
-<p><a href="https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/tree/master/pubsub">This example</a> <a href="https://github.com/GoogleCloudPlatform/kubernetes"><strong>Kubernetes</strong></a> app shows how to build a ‘pipeline’ to stream Twitter data into <a href="https://cloud.google.com/bigquery/what-is-bigquery"><strong>BigQuery</strong></a> using <a href="https://cloud.google.com/pubsub/docs">PubSub</a>.</p>
-
-<p>The app uses uses PubSub to buffer the data coming in from Twitter and to decouple ingestion from processing.
-One of the Kubernetes app <strong><em>pods</em></strong> reads the data from Twitter and publishes it to a PubSub topic.  Other pods subscribe to the PubSub topic, grab data in small batches, and stream it into BigQuery.  The figure below suggests this flow.</p>
-
-<p><img src="/images/k8s_pubsub_tw_bq.png" width="600" alt="Architecture of app" /></p>
-
-<p>This app can be thought of as a ‘workflow’ type of app– it doesn’t have a web front end (though Kubernetes is great for those types of apps as well).
-Instead, it is designed to continously run a scalable data ingestion pipeline.</p>
-
-<p>Find the code and more detail <a href="https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/tree/master/pubsub">here</a>.</p>
-
-
-  </article>
-
-</div>
-
-Tags:
-  
-    <a href="/tag/kubernetes.html">kubernetes</a>&nbsp
-  
-    <a href="/tag/pubsub.html">pubsub</a>&nbsp
-  
-    <a href="/tag/bigquery.html">bigquery</a>&nbsp
-  
-    <a href="/tag/twitter.html">twitter</a>&nbsp
-  
 </ul>
+
+<div id="tag-cloud">
+  <a href="/tag/Apache_Beam.html" class="set-1">Apache_Beam</a> <a href="/tag/big_data.html" class="set-1">big_data</a> <a href="/tag/bigquery.html" class="set-5">bigquery</a> <a href="/tag/data_analysis.html" class="set-1">data_analysis</a> <a href="/tag/gae.html" class="set-5">gae</a> <a href="/tag/kubernetes.html" class="set-5">kubernetes</a> <a href="/tag/php.html" class="set-5">php</a> <a href="/tag/pubsub.html" class="set-1">pubsub</a> <a href="/tag/redis.html" class="set-1">redis</a> <a href="/tag/twitter.html" class="set-5">twitter</a>
+</div>
 
       </div>
     </div>

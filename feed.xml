@@ -5,9 +5,37 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 20 May 2015 11:09:16 -0700</pubDate>
-    <lastBuildDate>Wed, 20 May 2015 11:09:16 -0700</lastBuildDate>
+    <pubDate>Mon, 15 Feb 2016 13:04:32 -0800</pubDate>
+    <lastBuildDate>Mon, 15 Feb 2016 13:04:32 -0800</lastBuildDate>
     <generator>Jekyll v2.4.0</generator>
+    
+      <item>
+        <title>Cloud Dataflow News</title>
+        <description>&lt;p&gt;There’s been a lot happening with &lt;a href=&quot;https://cloud.google.com/dataflow/&quot;&gt;Google Cloud Dataflow&lt;/a&gt; lately.&lt;/p&gt;
+
+&lt;p&gt;We are pleased to announce the recent induction of the &lt;a href=&quot;https://cloud.google.com/dataflow/what-is-google-cloud-dataflow#Sdks&quot;&gt;Google Cloud Dataflow SDK&lt;/a&gt; (and corresponding runners for &lt;a href=&quot;https://flink.apache.org/&quot;&gt;Apache Flink&lt;/a&gt; and &lt;a href=&quot;http://spark.apache.org/&quot;&gt;Apache Spark&lt;/a&gt;) into the new &lt;a href=&quot;http://beam.incubator.apache.org/&quot;&gt;Apache Beam incubator project&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;A &lt;a href=&quot;http://oreilly.com/ideas/the-world-beyond-batch-streaming-102&quot;&gt;‘Streaming 102’&lt;/a&gt; article was published by O’Reilly , following 
+&lt;a href=&quot;http://oreilly.com/ideas/the-world-beyond-batch-streaming-101&quot;&gt;‘Streaming 101’&lt;/a&gt;.  These articles provide a great overview of design and implementation considerations in stream data analysis.&lt;/p&gt;
+
+&lt;p&gt;We’ve also recently written an article that &lt;a href=&quot;https://cloud.google.com/dataflow/blog/dataflow-beam-and-spark-comparison&quot;&gt;compares the programming models of Dataflow and Spark as they exist today&lt;/a&gt;, based on a mobile ‘gaming’ scenario, involving the evolution of a pipeline from a simple batch use case to more sophisticated streaming use cases, with side-by-side code snippets contrasting the two.
+The article uses a suite of ‘gaming’ example pipelines that can be found in the &lt;a href=&quot;https://github.com/GoogleCloudPlatform/DataflowJavaSDK/tree/master/examples/src/main/java8/com/google/cloud/dataflow/examples/complete/game&quot;&gt;Dataflow github repo&lt;/a&gt;.&lt;/p&gt;
+
+</description>
+        <pubDate>Mon, 15 Feb 2016 00:00:00 -0800</pubDate>
+        <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
+        
+        <category>Apache_Beam</category>
+        
+        <category>big_data</category>
+        
+        <category>data_analysis</category>
+        
+        
+        <category>dataflow</category>
+        
+      </item>
     
       <item>
         <title>New sample repos for Symfony and Laravel with the Google App Engine PHP Runtime</title>
