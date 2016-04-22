@@ -5,9 +5,59 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 15 Feb 2016 13:18:21 -0800</pubDate>
-    <lastBuildDate>Mon, 15 Feb 2016 13:18:21 -0800</lastBuildDate>
+    <pubDate>Fri, 22 Apr 2016 14:05:36 -0700</pubDate>
+    <lastBuildDate>Fri, 22 Apr 2016 14:05:36 -0700</lastBuildDate>
     <generator>Jekyll v2.4.0</generator>
+    
+      <item>
+        <title>Using the Cloud Vision API with Twilio Messaging on Kubernetes</title>
+        <description>&lt;p&gt;The &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Google Cloud Vision API&lt;/a&gt; has just moved to GA (General Availability) status.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/cat_and_laptop.jpg&quot; width=&quot;300&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;The Vision API lets you create applications that can classify images into thousands of categories (e.g., “sailboat”, “lion”… or &lt;strong&gt;cat&lt;/strong&gt; and &lt;strong&gt;laptop&lt;/strong&gt; as above); can detect faces and other objects in images (including predicting “sentiment”); can perform OCR (detection of text in images); can detect landmarks (like the Eiffel Tower); can detect logos; and can moderate for offensive content.
+You can &lt;a href=&quot;https://www.youtube.com/watch?v=ud2Ipnq0pTU&quot;&gt;see Jeff Dean demoing the Vision API in this video&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision&quot;&gt;This github repo&lt;/a&gt; has a number of Vision API examples, written in different languages, and showing off different aspects of the Cloud Vision API. Some of the examples are simple scripts, and others are a bit more complex.&lt;/p&gt;
+
+&lt;p&gt;A &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-k8s&quot;&gt;new example called ‘twilio-k8s’&lt;/a&gt; has just been added to the repo. It shows
+how to run the
+&lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-labels&quot;&gt;“What’s That?” app&lt;/a&gt; (built by &lt;a href=&quot;http://www.blog.juliaferraioli.com/2016/02/exploring-world-using-vision-twilio.html&quot;&gt;Julia
+Ferraioli&lt;/a&gt;), on
+&lt;a href=&quot;http://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The app uses &lt;a href=&quot;https://www.twilio.com&quot;&gt;Twilio&lt;/a&gt; to allow images to be texted to a given number,
+then uses the &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Cloud Vision API&lt;/a&gt; to find labels in the image
+(classify what’s in the image) and return the detected labels as a reply text.
+Because the app is running on Kubernetes, it’s easy to &lt;strong&gt;scale up the app&lt;/strong&gt; to support a large number
+of requests.&lt;/p&gt;
+
+&lt;p&gt;Once you’ve set up the app on your Google Container Engine (or Kubernetes) cluster, and set up your Twilio number, you can text images to get content labelings:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/yard.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/yard.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;It’s easy to modify your own version of the app to look for additional information in the image.  I’ve in fact modifed my version of the app to look for &lt;em&gt;logos&lt;/em&gt; too. It’s fun to see how well it can do with an incomplete view of a logo:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/cl_bar.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/cl_bar.png&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;After you’ve set up your app, when you’re ready to share it, you can scale up the number of servers running on your Kubernetes cluster so that the app stays responsive.  The example’s &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/blob/master/python/twilio/twilio-k8s/README.md&quot;&gt;README&lt;/a&gt; goes into more detail about how to do all of this.&lt;/p&gt;
+
+&lt;p&gt;For a relatively short time, you can try it out here: (785) 336-5113.&lt;br /&gt;
+This number won’t work indefinitely, though :).&lt;/p&gt;
+
+</description>
+        <pubDate>Fri, 22 Apr 2016 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
+        
+        <category>Vision_API</category>
+        
+        <category>machine_learning</category>
+        
+        
+        <category>ml</category>
+        
+      </item>
     
       <item>
         <title>Cloud Dataflow News</title>
