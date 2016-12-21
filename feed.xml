@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 20 Dec 2016 16:09:40 -0800</pubDate>
-    <lastBuildDate>Tue, 20 Dec 2016 16:09:40 -0800</lastBuildDate>
+    <pubDate>Tue, 20 Dec 2016 16:33:04 -0800</pubDate>
+    <lastBuildDate>Tue, 20 Dec 2016 16:33:04 -0800</lastBuildDate>
     <generator>Jekyll v2.4.0</generator>
     
       <item>
@@ -16,8 +16,8 @@
 &lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
 
 &lt;p&gt;Many of us belong to some &lt;a href=&quot;https://slack.com/&quot;&gt;Slack&lt;/a&gt; communities.
-Slack has an API that makes it easy to add ‘bots’ to a channel, that do interesting things with the posted content, and that can interact with the people on the channel. 
-Google’s Cloud Machine Learning APIs make it easy to build bots with interesting and fun capabilities.  &lt;/p&gt;
+Slack has an API that makes it easy to add ‘bots’ to a channel, that do interesting things with the posted content, and that can interact with the people on the channel.
+Google’s Cloud Machine Learning APIs make it easy to build bots with interesting and fun capabilities.&lt;/p&gt;
 
 &lt;p&gt;Here, we’ll describe how to build such a bot, one that uses the &lt;a href=&quot;https://cloud.google.com/natural-language/&quot;&gt;Google Cloud ML Natural Language API&lt;/a&gt; to analyze channel content, runs on &lt;a href=&quot;http://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt; to make it easy to deploy, and uses the &lt;a href=&quot;https://github.com/howdyai/botkit&quot;&gt;Botkit&lt;/a&gt; library to make it easy to interact with Slack.&lt;/p&gt;
 
@@ -25,14 +25,14 @@ Google’s Cloud Machine Learning APIs make it easy to build bots with interesti
 
 &lt;h2 id=&quot;using-the-cloud-ml-natural-language-api-in-a-bot&quot;&gt;Using the Cloud ML Natural Language API in a bot&lt;/h2&gt;
 
-&lt;p&gt;The &lt;a href=&quot;https://cloud.google.com/natural-language/&quot;&gt;Google Cloud Natural Language API&lt;/a&gt;  helps reveals the structure and meaning of text by offering powerful machine learning models for multiple languages– currently, English, Spanish, and Japanese.&lt;br /&gt;
+&lt;p&gt;The &lt;a href=&quot;https://cloud.google.com/natural-language/&quot;&gt;Google Cloud Natural Language API&lt;/a&gt;  helps reveals the structure and meaning of text by offering powerful machine learning models for multiple languages– currently, English, Spanish, and Japanese.
 You can use the NL API to do &lt;strong&gt;entity recognition&lt;/strong&gt; (identifying entities and label by types such as person, organization, location, events, products and media), &lt;strong&gt;sentiment analysis&lt;/strong&gt; (understanding the overall sentiment expressed in a block of text), and &lt;strong&gt;syntax analysis&lt;/strong&gt; (sentence extraction and tokenization, identifying parts of speech, creating parse trees for each sentence, and more).&lt;/p&gt;
 
 &lt;p&gt;Our Natural Language (NL) slackbot uses the Google Cloud  NL API in two different ways.&lt;/p&gt;
 
 &lt;p&gt;First, it uses the NL API’s  &lt;a href=&quot;https://cloud.google.com/natural-language/docs/basics&quot;&gt;&lt;strong&gt;entity detection&lt;/strong&gt;&lt;/a&gt; to track the most common topics that are being discussed over time in a channel.
-It does this by detecting entities in each posted message, and recording them in a database.&lt;br /&gt;
-Then, at any time the participants in the channel can query the NL slackbot to ask it for the top N entities/topics discussed in the channel (by default, over the past week). &lt;/p&gt;
+It does this by detecting entities in each posted message, and recording them in a database.
+Then, at any time the participants in the channel can query the NL slackbot to ask it for the top N entities/topics discussed in the channel (by default, over the past week).&lt;/p&gt;
 
 &lt;p&gt;Additionally, the NL slackbot uses the NL API to assess
 the &lt;a href=&quot;https://cloud.google.com/natural-language/docs/basics&quot;&gt;&lt;strong&gt;sentiment&lt;/strong&gt;&lt;/a&gt; of any message posted to
@@ -43,16 +43,16 @@ sufficiently large, it sends a ‘thumbs up’ or ‘thumbs down’ to the chann
 
 &lt;p&gt;Our slackbot uses &lt;a href=&quot;https://cloud.google.com/container-engine/&quot;&gt;Google Container
 Engine&lt;/a&gt;, a hosted version of
-&lt;a href=&quot;http://kubernetes.io&quot;&gt;Kubernetes&lt;/a&gt;, to run the bot.  This is a convenient way to launch the bot in the cloud, so that there is no need to manage it locally, and to ensure that it stays running. 
+&lt;a href=&quot;http://kubernetes.io&quot;&gt;Kubernetes&lt;/a&gt;, to run the bot.  This is a convenient way to launch the bot in the cloud, so that there is no need to manage it locally, and to ensure that it stays running.
 It also uses &lt;a href=&quot;https://cloud.google.com/container-registry/&quot;&gt;Google Container Registry&lt;/a&gt; to store a Docker image
-for the bot. &lt;/p&gt;
+for the bot.&lt;/p&gt;
 
 &lt;p&gt;It’s useful to have the bot running in the cloud, and on a Kubernetes cluster.  While you could alternately just set it up on a VM somewhere, Kubernetes will ensure that it stays running.
 If the &lt;a href=&quot;http://kubernetes.io/docs/user-guide/pods/&quot;&gt;&lt;em&gt;pod&lt;/em&gt;&lt;/a&gt; in the slackbot’s &lt;a href=&quot;http://kubernetes.io/docs/user-guide/deployments/&quot;&gt;&lt;em&gt;Deployment&lt;/em&gt;&lt;/a&gt; goes down for some reason, Kubernetes will restart it.&lt;/p&gt;
 
 &lt;h2 id=&quot;starting-up-the-nl-slackbot&quot;&gt;Starting up the NL Slackbot&lt;/h2&gt;
 
-&lt;p&gt;The &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/README.md&quot;&gt;README&lt;/a&gt;  in the GitHub repo walks you through the process of starting up and running the slackbot.  As part of the process you’ll also 
+&lt;p&gt;The &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/README.md&quot;&gt;README&lt;/a&gt;  in the GitHub repo walks you through the process of starting up and running the slackbot.  As part of the process you’ll also
 create a &lt;a href=&quot;https://api.slack.com/bot-users&quot;&gt;Slack bot user&lt;/a&gt; and get an authentication token.&lt;/p&gt;
 
 &lt;p&gt;If you think you want to run your slackbot for a while, follow the instructions in &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/README.md#optional-create-a-slackbot-app-that-uses-persistent-storage&quot;&gt;the README section on setting up a Persistent Disk&lt;/a&gt; for the bot’s database.  That will allow the bot to be restarted without losing data.
@@ -62,14 +62,14 @@ The README also walks through how you can test your bot locally before deploying
 
 &lt;h2 id=&quot;the-nl-slackbot-in-action&quot;&gt;The NL Slackbot in Action&lt;/h2&gt;
 
-&lt;p&gt;Once your NL slackbot is running, and you’ve invited it to a channel, everyone in the channel can start to interact with it.&lt;br /&gt;
+&lt;p&gt;Once your NL slackbot is running, and you’ve invited it to a channel, everyone in the channel can start to interact with it.
 For the most part, the NL slackbot  will keep pretty quiet. Each time there is a post, the NL slackbot will analyze the &lt;strong&gt;entities&lt;/strong&gt; in that text (identifying entities and label by types such as person, organization, location, events, products and media). It will store those entities in a database.&lt;/p&gt;
 
 &lt;p&gt;It will also analyze the &lt;strong&gt;sentiment&lt;/strong&gt; of the post (understanding the overall sentiment expressed in a block of text).  If the magnitude of the sentiment is greater than a certain magnitude, either positive or negative, the bot will respond with a ‘thumbs up’ or ‘thumbs down’.  It doesn’t respond to all posts, only those for which the sentiment magnitude is above the threshold.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/images/nl_coffee_bananas_sh.png&quot; alt=&quot;Analyzing sentiment&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold :).&lt;/p&gt;
+&lt;p&gt;(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold).&lt;/p&gt;
 
 &lt;p&gt;Then, at any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code&gt;top entities&lt;/code&gt;.
 For example, if your bot is called &lt;code&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
@@ -86,10 +86,10 @@ For example, if your bot is called &lt;code&gt;@nlpbot&lt;/code&gt;, you would a
 
 &lt;p&gt;This slackbot is really just a proof of concept.  There are many ways that it could be developed further and be made more sophisticated.&lt;/p&gt;
 
-&lt;p&gt;As just one example, you could integrate the other Cloud ML APIs as well.  For example, you might add a capability that leverages the Cloud Vision API to analyze the images that people post to the channel.  Then, each time someone posted a meme image to the channel, you could do OCR on the image, then pass that info to the NL API.&lt;/p&gt;
+&lt;p&gt;As just one example, you could integrate the other Cloud ML APIs as well.  For example, you might add a capability that leverages the &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Cloud Vision API&lt;/a&gt; to analyze the images that people post to the channel.  Then, each time someone posted a meme image to the channel, you could use the Vision API to do OCR on the image, then pass that info to the NL API.&lt;/p&gt;
 
-&lt;p&gt;You could also extent the NL slackbot to support more sophisticated queries on the entity database – e.g., “show me the top N PERSONS” or “top N LOCATIONS today”.&lt;br /&gt;
-Or, you could include the wiki URLs in the results for any entities that have them. This information is currently being collected, but not displayed. That might look something like the following:&lt;/p&gt;
+&lt;p&gt;You could also extend the NL slackbot to support more sophisticated queries on the entity database – e.g., “show me the top N PERSONS” or “top N LOCATIONS today”.
+Or, you could include the wiki URLs in the results for any entities that have them. This information is currently being collected, but not displayed. That might look something like the following.  Note that “Trump” and “Donald Trump” are detected as referring to the same PERSON.&lt;/p&gt;
 
 &lt;p&gt;&lt;img src=&quot;/images/nl_slackbot_wiki_sh.png&quot; alt=&quot;Including wiki urls in entity information&quot; /&gt;&lt;/p&gt;
 
