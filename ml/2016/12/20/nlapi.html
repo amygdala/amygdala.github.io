@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Building a Slackbot that uses the Google Cloud ML Natural Language API (and runs on Kubernetes)</title>
+  <meta name="description" content="Building a Slackbot that uses the Google Cloud ML Natural Language API (and runs on Kubernetes)">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://amygdala.github.io/ml/2016/12/20/nlapi.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Amy on GCP</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Building a Slackbot that uses the Google Cloud ML Natural Language API (and runs on Kubernetes)</h1>
+    <p class="post-meta">Dec 20, 2016</p>
+  </header>
+
+  <article class="post-content">
+    <h1 id="building-a-slackbot-that-uses-the-google-cloud-ml-natural-language-api-and-runs-on-kubernetes">Building a Slackbot that uses the Google Cloud ML Natural Language API (and runs on Kubernetes)</h1>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>Many of us belong to some <a href="https://slack.com/">Slack</a> communities.
+Slack has an API that makes it easy to add ‘bots’ to a channel, that do interesting things with the posted content, and that can interact with the people on the channel. 
+Google’s Cloud Machine Learning APIs make it easy to build bots with interesting and fun capabilities.  </p>
+
+<p>Here, we’ll describe how to build such a bot, one that uses the <a href="https://cloud.google.com/natural-language/">Google Cloud ML Natural Language API</a> to analyze channel content, runs on <a href="http://kubernetes.io/">Kubernetes</a> to make it easy to deploy, and uses the <a href="https://github.com/howdyai/botkit">Botkit</a> library to make it easy to interact with Slack.</p>
+
+<p>The code for this slackbot is <a href="https://github.com/GoogleCloudPlatform/nodejs-docs-samples/tree/master/language/slackbot">here</a>.</p>
+
+<h2 id="using-the-cloud-ml-natural-language-api-in-a-bot">Using the Cloud ML Natural Language API in a bot</h2>
+
+<p>The <a href="https://cloud.google.com/natural-language/">Google Cloud Natural Language API</a>  helps reveals the structure and meaning of text by offering powerful machine learning models for multiple languages– currently, English, Spanish, and Japanese.<br />
+You can use the NL API to do <strong>entity recognition</strong> (identifying entities and label by types such as person, organization, location, events, products and media), <strong>sentiment analysis</strong> (understanding the overall sentiment expressed in a block of text), and <strong>syntax analysis</strong> (sentence extraction and tokenization, identifying parts of speech, creating parse trees for each sentence, and more).</p>
+
+<p>Our Natural Language (NL) slackbot uses the Google Cloud  NL API in two different ways.</p>
+
+<p>First, it uses the NL API’s  <a href="https://cloud.google.com/natural-language/docs/basics"><strong>entity detection</strong></a> to track the most common topics that are being discussed over time in a channel.
+It does this by detecting entities in each posted message, and recording them in a database.<br />
+Then, at any time the participants in the channel can query the NL slackbot to ask it for the top N entities/topics discussed in the channel (by default, over the past week). </p>
+
+<p>Additionally, the NL slackbot uses the NL API to assess
+the <a href="https://cloud.google.com/natural-language/docs/basics"><strong>sentiment</strong></a> of any message posted to
+the channel, and if the positive or negative magnitude of the statement is
+sufficiently large, it sends a ‘thumbs up’ or ‘thumbs down’ to the channel in reaction.</p>
+
+<h2 id="running-the-slackbot-as-a-kubernetes-app">Running the Slackbot as a Kubernetes App</h2>
+
+<p>Our slackbot uses <a href="https://cloud.google.com/container-engine/">Google Container
+Engine</a>, a hosted version of
+<a href="http://kubernetes.io">Kubernetes</a>, to run the bot.  This is a convenient way to launch the bot in the cloud, so that there is no need to manage it locally, and to ensure that it stays running. 
+It also uses <a href="https://cloud.google.com/container-registry/">Google Container Registry</a> to store a Docker image
+for the bot. </p>
+
+<p>It’s useful to have the bot running in the cloud, and on a Kubernetes cluster.  While you could alternately just set it up on a VM somewhere, Kubernetes will ensure that it stays running.
+If the <a href="http://kubernetes.io/docs/user-guide/pods/"><em>pod</em></a> in the slackbot’s <a href="http://kubernetes.io/docs/user-guide/deployments/"><em>Deployment</em></a> goes down for some reason, Kubernetes will restart it.</p>
+
+<h2 id="starting-up-the-nl-slackbot">Starting up the NL Slackbot</h2>
+
+<p>The <a href="https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/README.md">README</a>  in the GitHub repo walks you through the process of starting up and running the slackbot.  As part of the process you’ll also 
+create a <a href="https://api.slack.com/bot-users">Slack bot user</a> and get an authentication token.</p>
+
+<p>If you think you want to run your slackbot for a while, follow the instructions in <a href="https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/README.md#optional-create-a-slackbot-app-that-uses-persistent-storage">the README section on setting up a Persistent Disk</a> for the bot’s database.  That will allow the bot to be restarted without losing data.
+The README also walks through how you can test your bot locally before deploying to Kubernetes if you want.</p>
+
+<p>Then, invite the bot to a Slack channel.</p>
+
+<h2 id="the-nl-slackbot-in-action">The NL Slackbot in Action</h2>
+
+<p>Once your NL slackbot is running, and you’ve invited it to a channel, everyone in the channel can start to interact with it.<br />
+For the most part, the NL slackbot  will keep pretty quiet. Each time there is a post, the NL slackbot will analyze the <strong>entities</strong> in that text (identifying entities and label by types such as person, organization, location, events, products and media). It will store those entities in a database.</p>
+
+<p>It will also analyze the <strong>sentiment</strong> of the post (understanding the overall sentiment expressed in a block of text).  If the magnitude of the sentiment is greater than a certain magnitude, either positive or negative, the bot will respond with a ‘thumbs up’ or ‘thumbs down’.  It doesn’t respond to all posts, only those for which the sentiment magnitude is above the threshold.</p>
+
+<p><img src="/images/nl_coffee_bananas_sh.png" alt="Analyzing sentiment" /></p>
+
+<p>(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold :).</p>
+
+<p>Then, at any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words <code>top entities</code>.
+For example, if your bot is called <code>@nlpbot</code>, you would ask it like this:</p>
+
+<p><code>
+@nlpbot top entities
+</code></p>
+
+<p>Then, the result might look something like the following. (At least, if you have seeded your test channel with a combination of political news and Kubernetes posts :).</p>
+
+<p><img src="/images/nl_slackbot_ents2_sh.png" alt="Asking the bot for top entities" /></p>
+
+<h2 id="what-next">What Next?</h2>
+
+<p>This slackbot is really just a proof of concept.  There are many ways that it could be developed further and be made more sophisticated.</p>
+
+<p>As just one example, you could integrate the other Cloud ML APIs as well.  For example, you might add a capability that leverages the Cloud Vision API to analyze the images that people post to the channel.  Then, each time someone posted a meme image to the channel, you could do OCR on the image, then pass that info to the NL API.</p>
+
+<p>You could also extent the NL slackbot to support more sophisticated queries on the entity database – e.g., “show me the top N PERSONS” or “top N LOCATIONS today”.<br />
+Or, you could include the wiki URLs in the results for any entities that have them. This information is currently being collected, but not displayed. That might look something like the following:</p>
+
+<p><img src="/images/nl_slackbot_wiki_sh.png" alt="Including wiki urls in entity information" /></p>
+
+
+  </article>
+
+</div>
+
+Tags:
+  
+    <a href="/tag/machine_learning.html">machine_learning</a>&nbsp
+  
+    <a href="/tag/natural_language_processing.html">natural_language_processing</a>&nbsp
+  
+    <a href="/tag/natural_langage_API.html">natural_langage_API</a>&nbsp
+  
+    <a href="/tag/kubernetes.html">kubernetes</a>&nbsp
+  
+</ul>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <!-- <h2 class="footer-heading">Amy on GCP</h2> -->
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <!-- <li>Amy on GCP</li> -->
+          <li><a href="mailto:"></a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/amygdala">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/amygdala">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
