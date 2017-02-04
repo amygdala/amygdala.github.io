@@ -53,7 +53,13 @@ That means that it is quite straightforward to build an app that classifies imag
 
 ## An example app: "would you hug that?"
 
-Let's look at an example with a ... kind of goofy data set.  The code used to train this model and make this app is  [here](https://github.com/amygdala/tensorflow-workshop/tree/master/workshop_sections/transfer_learning/cloudml). (If you want to play along, make sure you've done all the [necessary setup](https://github.com/amygdala/tensorflow-workshop/blob/master/INSTALL.md) first).
+Let's look at an example with a ... kind of goofy data set.  The code used to train this model and make this app is
+[here](https://github.com/amygdala/tensorflow-workshop/tree/master/workshop_sections/transfer_learning/cloudml).
+
+(Note: This
+post is not really a tutorial -- the [README]
+(https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/README.md) walks you through the process of building the example in more detail.  If you want to give it a try, make sure you've done all the
+[necessary setup](https://github.com/amygdala/tensorflow-workshop/blob/master/INSTALL.md) first).
 
 Suppose we have a set of training images that have been labeled according to two categories: "things you might want to hug", and "things you would not want to hug". The 'huggable' dataset includes images of things like puppies and kittens.  The non-huggable dataset includes images of things with sharp edges, etc.
 Now, we want to build a web app that we can upload images to, and have the app tell us whether or not the object is something "huggable".
