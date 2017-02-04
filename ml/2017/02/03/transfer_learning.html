@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Learning and using your own image classifications</title>
+  <meta name="description" content="  Introduction  Transfer learning: building your own image classifier  An easy way to use your trained image classifier  An example app: “would you hug that?...">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://amygdala.github.io/ml/2017/02/03/transfer_learning.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Amy on GCP</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Learning and using your own image classifications</h1>
+    <p class="post-meta">Feb 3, 2017</p>
+  </header>
+
+  <article class="post-content">
+    <ul>
+  <li><a href="#introduction">Introduction</a></li>
+  <li><a href="#transfer-learning-building-your-own-image-classifier">Transfer learning: building your own image classifier</a></li>
+  <li><a href="#an-easy-way-to-use-your-trained-image-classifier">An easy way to use your trained image classifier</a></li>
+  <li><a href="#an-example-app-would-you-hug-that">An example app: “would you hug that?”</a></li>
+  <li><a href="#exporting-your-trained-model-to-cloud-ml">Exporting your trained model to Cloud ML</a></li>
+  <li><a href="#using-the-hugs-classifier-for-prediction-with-the-cloud-ml-api">Using the “hugs classifier” for prediction with the Cloud ML API</a></li>
+  <li><a href="#bonus-hedgehogs-vs-dandelions">Bonus: Hedgehogs vs Dandelions</a></li>
+  <li><a href="#what-next">What Next?</a></li>
+</ul>
+
+<h2 id="introduction">Introduction</h2>
+
+<p>The <a href="https://cloud.google.com/vision/">Google Vision API</a> is great for identifying labels, or categories, for a given
+image. However, sometimes you want to further classify your own images, for more specialized categories that the Google
+Vision API hasn’t been trained on.  E.g., maybe you’re a birdwatcher and want to recognize rare species of birds that the Vision API doesn’t do well at discriminating.  Maybe you’re a cell biologist, and want to try to automatically classify your slides.</p>
+
+<p>It turns out that it can be pretty straightforward to build your own neural net model to do this, via <em>transfer
+learning</em> –  bootstrapping an existing image classification model to reduce the effort needed to learn something new.</p>
+
+<p>In this post, we’ll take a look at an example that does that.</p>
+
+<h2 id="transfer-learning-building-your-own-image-classifier">Transfer learning: building your own image classifier</h2>
+
+<p>One such deep neural net model is the <a href="http://arxiv.org/abs/1512.00567">Inception</a> architecture, built using <a href="https://www.tensorflow.org/">TensorFlow</a>, a machine learning framework open-sourced by Google.
+Google has also open-sourced the <a href="https://github.com/tensorflow/models/tree/master/inception">Inception v3</a> model, trained to classify images against 1000 different <a href="http://www.image-net.org/">ImageNet</a> categories.  We can use its penultimate “bottleneck” layer to train a new top layer that can recognize other classes of images: your own classes.
+We’ll see that our new top layer does not need to be very complex, and that we typically don’t need much data or much training of this new model, to get good results for our new image classifications.</p>
+
+<p><img src="/images/image-classification-3-1.png" alt="Transfer learning" /></p>
+
+<p>There have been some great posts showing how you can <a href="https://petewarden.com/2016/02/28/tensorflow-for-poets/">train this new ‘top layer’ model with TensorFlow</a>, and how to do this training on <a href="https://cloud.google.com/blog/big-data/2016/12/how-to-train-and-classify-images-using-google-cloud-machine-learning-and-cloud-dataflow">Google Cloud Machine Learning</a>.</p>
+
+<h2 id="an-easy-way-to-use-your-trained-image-classifier">An easy way to use your trained image classifier</h2>
+
+<p>In this post, we’ll focus more on the next step: After you’ve trained your model, and can classify your own images, you’ll want to be able to use the model for inference (prediction). That is, given a new image, you’d like to ask: which of your categories does it fall into?</p>
+
+<p>You’ll often need to have these prediction capabilities scale up. Perhaps you’ve built a mobile app to (say) recognize bird species, by using your trained ML model for online species prediction. If the app becomes wildly popular, you don’t want it to stop working because it’s getting too much traffic.</p>
+
+<p><a href="https://cloud.google.com/ml/">Google Cloud Machine Learning</a> (Cloud ML) is an easy way to do this: in addition to supporting distributed model training, Cloud ML lets you scalably serve your online predictions after the model is trained.</p>
+
+<p>One way to access the Cloud ML online prediction service is to use the <a href="https://developers.google.com/discovery/libraries">Google API Client Libraries</a> to access the <a href="https://cloud.google.com/ml/reference/rest/">Cloud ML API</a>.
+That means that it is quite straightforward to build an app that classifies images according to your categories, and scales up without your needing to do anything.</p>
+
+<h2 id="an-example-app-would-you-hug-that">An example app: “would you hug that?”</h2>
+
+<p>Let’s look at an example with a … kind of goofy data set.  The code used to train this model and make this app is  <a href="https://github.com/amygdala/tensorflow-workshop/tree/master/workshop_sections/transfer_learning/cloudml">here</a>. (If you want to play along, make sure you’ve done all the <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/INSTALL.md">necessary setup</a> first).</p>
+
+<p>Suppose we have a set of training images that have been labeled according to two categories: “things you might want to hug”, and “things you would not want to hug”. The ‘huggable’ dataset includes images of things like puppies and kittens.  The non-huggable dataset includes images of things with sharp edges, etc.
+Now, we want to build a web app that we can upload images to, and have the app tell us whether or not the object is something “huggable”.</p>
+
+<p>We want our web app to work like this: If you upload an image to the app:</p>
+
+<p><img src="/images/yarn_octopus.png" width="500" alt="A yarn octopus" /></p>
+
+<p>…the app uses the trained model to get the predicted category of the image (“hugs”? “no hugs”?).  Then the app will use the response to display the results:</p>
+
+<p><img src="/images/yarn_octopus_score.png" width="600" alt="The yarn octopus is scored as huggable" /></p>
+
+<p><strong>Thanks to Julia Ferraioli for the idea, the “hugs/no-hugs” dataset and an earlier version of the prediction web app.</strong></p>
+
+<p>We’ll train our “hugs/no-hugs” model on Cloud ML, and use the Cloud ML API to make it easy to build the prediction web app.</p>
+
+<p>To do this, we first need to do some <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/hugs_preproc.sh">image preprocessing</a>, to extract the ‘bottleneck layer’ information (the <em>embeds</em>) from the Inception v3 model, for each image in our dataset. These embeds will form the input data for the new ‘top layer’ model that we will train.
+We will use <a href="https://cloud.google.com/dataflow/">Cloud Dataflow</a> (<a href="https://beam.apache.org/">Apache Beam</a>)
+to do this preprocessing – that is, the Beam pipeline uses the Inception v3 model to generate the inputs. We’ll save those preprocessing results in the cloud, in <a href="https://cloud.google.com/storage/">Google Cloud Storage</a> (GCS), as <a href="https://www.tensorflow.org/api_docs/python/python_io/">TFRecords</a>, for easy consumption by the training process.</p>
+
+<p>Then, we’re ready to <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/hugs_train.sh">train the model</a>. Follow the code link to see the specifics.
+(If you follow the blog post links above, you’ll also find other examples that train using a different “flowers” dataset.)</p>
+
+<p>Once the model is trained, we can use it to classify new images.  If we deploy the trained model to Cloud ML, we can make prediction requests using the Cloud ML API scalably, without any other setup.  This is great, since it makes our web app very easy to write.</p>
+
+<h2 id="exporting-your-trained-model-to-cloud-ml">Exporting your trained model to Cloud ML</h2>
+
+<p>To be able to <a href="https://cloud.google.com/ml/docs/how-tos/getting-predictions">use a trained model for prediction</a>, you will need to <a href="https://cloud.google.com/ml/docs/how-tos/preparing-models#adding_input_and_output_collections_to_the_graph">add input and output collections</a> to your model graph.  This gives Cloud ML the necessary ‘hooks’ into your deployed model graph for running predictions and returning the results.  See <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/trainer/model.py#L343">this model prediction graph definition</a> for an example. You’ll also need to make sure you export (save) your model as described <a href="https://cloud.google.com/ml/docs/how-tos/preparing-models#exporting_saving_the_final_model">here</a>, including exporting the <a href="https://www.tensorflow.org/versions/r0.11/how_tos/meta_graph/">MetaGraph</a>.  See <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/trainer/model.py#L365">this method</a> for example export code.</p>
+
+<p>Once you’ve done that, you can deploy a trained model to Cloud ML like this.  First, “create the model” in Cloud ML – this does not define the actual model, but creates a name to associate with the model once you upload it. For example:</p>
+
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud beta ml models create hugs
+</code></pre>
+</div>
+
+<p>Then, <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/model.sh">deploy a <em>version</em> of that model</a> by pointing Cloud ML to the checkpointed model info that was saved as the final result of your training session.
+The command to do that will look something like this:</p>
+
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud beta ml versions create v1 <span class="se">\</span>
+  --model hugs <span class="se">\</span>
+  --origin gs://your-gcs-bucket/path/to/model
+</code></pre>
+</div>
+
+<p>It will take a few minutes to create the model version. Once that’s done, you can start to access it for prediction in your apps.  Each time you deploy a new version of your model, you will use a new version name.  If you have more than one version of a model, you can set one as the default.</p>
+
+<h2 id="using-the-hugs-classifier-for-prediction-with-the-cloud-ml-api">Using the “hugs classifier” for prediction with the Cloud ML API</h2>
+
+<p>Once your model is deployed, there are various ways to access it.  One easy way for initial testing is just to <a href="https://cloud.google.com/ml/docs/quickstarts/prediction#use_the_online_prediction_service">use the gcloud sdk from the command line</a>.</p>
+
+<p>But, for the web app, we’ll use the <a href="https://developers.google.com/api-client-library/python/">Google API client libs</a>
+instead, to call the <a href="https://cloud.google.com/ml/reference/rest/v1beta1/projects/predict">Cloud ML API web service</a>.
+So we just need to upload an image to the app; format the image data for input to our model; then just make the API
+call<sup><a href="#footnote1">1</a></sup> and display the response.</p>
+
+<p><img src="/images/motherboard.jpeg" alt="a computer motherboard" /></p>
+
+<p>For example, if we upload this photo of a motherboard…</p>
+
+<p><img src="/images/motherboard_score.png" width="600" alt="a motherboard is scored as not huggable" /></p>
+
+<p>… it’s judged as “not huggable”.</p>
+
+<p>Here is a Python code snippet showing a prediction API call:</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">googleapiclient</span> <span class="kn">import</span> <span class="n">discovery</span>
+<span class="kn">from</span> <span class="nn">oauth2client.client</span> <span class="kn">import</span> <span class="n">GoogleCredentials</span>
+
+<span class="k">def</span> <span class="nf">create_client</span><span class="p">():</span>
+
+  <span class="n">credentials</span> <span class="o">=</span> <span class="n">GoogleCredentials</span><span class="o">.</span><span class="n">get_application_default</span><span class="p">()</span>
+  <span class="n">ml_service</span> <span class="o">=</span> <span class="n">discovery</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+      <span class="s">'ml'</span><span class="p">,</span> <span class="s">'v1beta1'</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">credentials</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">ml_service</span>
+
+
+<span class="k">def</span> <span class="nf">get_prediction</span><span class="p">(</span><span class="n">ml_service</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">input_image</span><span class="p">):</span>
+  <span class="n">request_dict</span> <span class="o">=</span> <span class="n">make_request_json</span><span class="p">(</span><span class="n">input_image</span><span class="p">)</span>
+  <span class="n">body</span> <span class="o">=</span> <span class="p">{</span><span class="s">'instances'</span><span class="p">:</span> <span class="p">[</span><span class="n">request_dict</span><span class="p">]}</span>
+
+  <span class="c"># This request will use the default model version.</span>
+  <span class="n">parent</span> <span class="o">=</span> <span class="s">'projects/{}/models/{}'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">model_name</span><span class="p">)</span>
+  <span class="n">request</span> <span class="o">=</span> <span class="n">ml_service</span><span class="o">.</span><span class="n">projects</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+  <span class="k">return</span> <span class="n">result</span>
+</code></pre>
+</div>
+
+<p>You can see more detail on how the uploaded image was formatted for the API request, and how the response was 
+parsed, <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/web_server/predict_server.py">here</a>.</p>
+
+<p>A quokka, in contrast, is (very rightly) judged as “huggable”.</p>
+
+<p><img src="/images/quokka_score.png" width="600" alt="a quokka is scored as huggable" /></p>
+
+<h2 id="bonus-hedgehogs-vs-dandelions">Bonus: Hedgehogs vs Dandelions</h2>
+
+<p><img src="/images/hedgehog.jpg" width="400" alt="A hedgehog" /></p>
+
+<p>When I was experimenting with learning both the “hugs/no-hugs” and <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/flowers_preproc.sh">“flowers”</a> classification models, I learned something funny<sup><a href="#footnote2">2</a></sup>.  I accidentally fed the “flowers” model an image of a hedgehog.  The hedgehog was meant for the “hugs/no-hugs” model, which will reasonably classify it as “don’t hug”.</p>
+
+<p>It turns out that if you ask the “flowers” model what kind of flower a hedgehog is, it will classify it pretty confidently as looking most like a dandelion. This seems pretty astute of the flowers model!</p>
+
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>python images_to_json.py hedgehog.jpg
+<span class="gp">$ </span>gcloud beta ml predict --model flowers --json-instances request.json
+KEY                             PREDICTION  SCORES
+prediction_images/hedgehog.jpg  1           <span class="o">[</span>0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
+<span class="gp">$ </span>gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
+daisy
+dandelion
+roses
+sunflowers
+tulips
+</code></pre>
+</div>
+
+<p>(We can see this is so because <code class="highlighter-rouge">dandelion</code> is in the ‘1’ index position in the 
+flower dataset’s <code class="highlighter-rouge">dict.txt</code>, corresponding to the prediction of ‘1’.)</p>
+
+<h2 id="what-next">What Next?</h2>
+
+<p>If you’re interested to learn more about TensorFlow and CloudML, there are many examples and tutorials on the <a href="https://www.tensorflow.org/">TensorFlow site</a>.  The <a href="https://cloud.google.com/ml/docs/">Cloud ML docs</a> go into much more detail on how to train and serve a model, including Cloud ML’s support for distributed training and hyperparamter tuning.</p>
+
+<p>(You might also be interested in the upcoming <a href="https://cloudnext.withgoogle.com/">Google Cloud Next</a> event, where you can hear much more about what Google is doing in the Big Data &amp; Machine Learning area.)</p>
+
+<hr />
+
+<p><small>
+<span id="footnote1">1</span>: While the prediction service is in alpha, you may sometimes see a <code class="highlighter-rouge">502</code> error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.</small></p>
+
+<p><small>
+<span id="footnote2">2</span>: It’s possible that this amuses only me.</small></p>
+
+<h4 id="image-credits">Image credits:</h4>
+
+<ul>
+  <li><a href="https://goo.gl/images/zdGnN9">https://goo.gl/images/zdGnN9</a> - yarn octopus</li>
+  <li><a href="https://goo.gl/images/LmaVMu">https://goo.gl/images/LmaVMu</a> - motherboard</li>
+  <li><a href="https://goo.gl/images/XTF5h0">https://goo.gl/images/XTF5h0</a> - quokka</li>
+  <li><a href="https://goo.gl/images/XTF5h0">https://goo.gl/images/yuFM1C</a> - hedgehog</li>
+</ul>
+
+  </article>
+
+</div>
+
+Tags:
+  
+    <a href="/tag/machine_learning.html">machine_learning</a>&nbsp
+  
+    <a href="/tag/Cloud_ML.html">Cloud_ML</a>&nbsp
+  
+</ul>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <!-- <h2 class="footer-heading">Amy on GCP</h2> -->
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <!-- <li>Amy on GCP</li> -->
+          <li><a href="mailto:"></a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/amygdala">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/amygdala">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
