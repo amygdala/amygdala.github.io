@@ -5,9 +5,212 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 14 Jan 2017 15:09:55 -0800</pubDate>
-    <lastBuildDate>Sat, 14 Jan 2017 15:09:55 -0800</lastBuildDate>
-    <generator>Jekyll v2.4.0</generator>
+    <pubDate>Fri, 03 Feb 2017 16:06:17 -0800</pubDate>
+    <lastBuildDate>Fri, 03 Feb 2017 16:06:17 -0800</lastBuildDate>
+    <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Learning and using your own image classifications</title>
+        <description>&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;#introduction&quot;&gt;Introduction&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#transfer-learning-building-your-own-image-classifier&quot;&gt;Transfer learning: building your own image classifier&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#an-easy-way-to-use-your-trained-image-classifier&quot;&gt;An easy way to use your trained image classifier&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#an-example-app-would-you-hug-that&quot;&gt;An example app: “would you hug that?”&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#exporting-your-trained-model-to-cloud-ml&quot;&gt;Exporting your trained model to Cloud ML&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#using-the-hugs-classifier-for-prediction-with-the-cloud-ml-api&quot;&gt;Using the “hugs classifier” for prediction with the Cloud ML API&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#bonus-hedgehogs-vs-dandelions&quot;&gt;Bonus: Hedgehogs vs Dandelions&lt;/a&gt;&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;#what-next&quot;&gt;What Next?&lt;/a&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;The &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Google Vision API&lt;/a&gt; is great for identifying labels, or categories, for a given
+image. However, sometimes you want to further classify your own images, for more specialized categories that the Google
+Vision API hasn’t been trained on.  E.g., maybe you’re a birdwatcher and want to recognize rare species of birds that the Vision API doesn’t do well at discriminating.  Maybe you’re a cell biologist, and want to try to automatically classify your slides.&lt;/p&gt;
+
+&lt;p&gt;It turns out that it can be pretty straightforward to build your own neural net model to do this, via &lt;em&gt;transfer
+learning&lt;/em&gt; –  bootstrapping an existing image classification model to reduce the effort needed to learn something new.&lt;/p&gt;
+
+&lt;p&gt;In this post, we’ll take a look at an example that does that.&lt;/p&gt;
+
+&lt;h2 id=&quot;transfer-learning-building-your-own-image-classifier&quot;&gt;Transfer learning: building your own image classifier&lt;/h2&gt;
+
+&lt;p&gt;One such deep neural net model is the &lt;a href=&quot;http://arxiv.org/abs/1512.00567&quot;&gt;Inception&lt;/a&gt; architecture, built using &lt;a href=&quot;https://www.tensorflow.org/&quot;&gt;TensorFlow&lt;/a&gt;, a machine learning framework open-sourced by Google.
+Google has also open-sourced the &lt;a href=&quot;https://github.com/tensorflow/models/tree/master/inception&quot;&gt;Inception v3&lt;/a&gt; model, trained to classify images against 1000 different &lt;a href=&quot;http://www.image-net.org/&quot;&gt;ImageNet&lt;/a&gt; categories.  We can use its penultimate “bottleneck” layer to train a new top layer that can recognize other classes of images: your own classes.
+We’ll see that our new top layer does not need to be very complex, and that we typically don’t need much data or much training of this new model, to get good results for our new image classifications.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/image-classification-3-1.png&quot; alt=&quot;Transfer learning&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;There have been some great posts showing how you can &lt;a href=&quot;https://petewarden.com/2016/02/28/tensorflow-for-poets/&quot;&gt;train this new ‘top layer’ model with TensorFlow&lt;/a&gt;, and how to do this training on &lt;a href=&quot;https://cloud.google.com/blog/big-data/2016/12/how-to-train-and-classify-images-using-google-cloud-machine-learning-and-cloud-dataflow&quot;&gt;Google Cloud Machine Learning&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;an-easy-way-to-use-your-trained-image-classifier&quot;&gt;An easy way to use your trained image classifier&lt;/h2&gt;
+
+&lt;p&gt;In this post, we’ll focus more on the next step: After you’ve trained your model, and can classify your own images, you’ll want to be able to use the model for inference (prediction). That is, given a new image, you’d like to ask: which of your categories does it fall into?&lt;/p&gt;
+
+&lt;p&gt;You’ll often need to have these prediction capabilities scale up. Perhaps you’ve built a mobile app to (say) recognize bird species, by using your trained ML model for online species prediction. If the app becomes wildly popular, you don’t want it to stop working because it’s getting too much traffic.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://cloud.google.com/ml/&quot;&gt;Google Cloud Machine Learning&lt;/a&gt; (Cloud ML) is an easy way to do this: in addition to supporting distributed model training, Cloud ML lets you scalably serve your online predictions after the model is trained.&lt;/p&gt;
+
+&lt;p&gt;One way to access the Cloud ML online prediction service is to use the &lt;a href=&quot;https://developers.google.com/discovery/libraries&quot;&gt;Google API Client Libraries&lt;/a&gt; to access the &lt;a href=&quot;https://cloud.google.com/ml/reference/rest/&quot;&gt;Cloud ML API&lt;/a&gt;.
+That means that it is quite straightforward to build an app that classifies images according to your categories, and scales up without your needing to do anything.&lt;/p&gt;
+
+&lt;h2 id=&quot;an-example-app-would-you-hug-that&quot;&gt;An example app: “would you hug that?”&lt;/h2&gt;
+
+&lt;p&gt;Let’s look at an example with a … kind of goofy data set.  The code used to train this model and make this app is  &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/tree/master/workshop_sections/transfer_learning/cloudml&quot;&gt;here&lt;/a&gt;. (If you want to play along, make sure you’ve done all the &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/INSTALL.md&quot;&gt;necessary setup&lt;/a&gt; first).&lt;/p&gt;
+
+&lt;p&gt;Suppose we have a set of training images that have been labeled according to two categories: “things you might want to hug”, and “things you would not want to hug”. The ‘huggable’ dataset includes images of things like puppies and kittens.  The non-huggable dataset includes images of things with sharp edges, etc.
+Now, we want to build a web app that we can upload images to, and have the app tell us whether or not the object is something “huggable”.&lt;/p&gt;
+
+&lt;p&gt;We want our web app to work like this: If you upload an image to the app:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/yarn_octopus.png&quot; width=&quot;500&quot; alt=&quot;A yarn octopus&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;…the app uses the trained model to get the predicted category of the image (“hugs”? “no hugs”?).  Then the app will use the response to display the results:&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/yarn_octopus_score.png&quot; width=&quot;600&quot; alt=&quot;The yarn octopus is scored as huggable&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Thanks to Julia Ferraioli for the idea, the “hugs/no-hugs” dataset and an earlier version of the prediction web app.&lt;/strong&gt;&lt;/p&gt;
+
+&lt;p&gt;We’ll train our “hugs/no-hugs” model on Cloud ML, and use the Cloud ML API to make it easy to build the prediction web app.&lt;/p&gt;
+
+&lt;p&gt;To do this, we first need to do some &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/hugs_preproc.sh&quot;&gt;image preprocessing&lt;/a&gt;, to extract the ‘bottleneck layer’ information (the &lt;em&gt;embeds&lt;/em&gt;) from the Inception v3 model, for each image in our dataset. These embeds will form the input data for the new ‘top layer’ model that we will train.
+We will use &lt;a href=&quot;https://cloud.google.com/dataflow/&quot;&gt;Cloud Dataflow&lt;/a&gt; (&lt;a href=&quot;https://beam.apache.org/&quot;&gt;Apache Beam&lt;/a&gt;)
+to do this preprocessing – that is, the Beam pipeline uses the Inception v3 model to generate the inputs. We’ll save those preprocessing results in the cloud, in &lt;a href=&quot;https://cloud.google.com/storage/&quot;&gt;Google Cloud Storage&lt;/a&gt; (GCS), as &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/python_io/&quot;&gt;TFRecords&lt;/a&gt;, for easy consumption by the training process.&lt;/p&gt;
+
+&lt;p&gt;Then, we’re ready to &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/hugs_train.sh&quot;&gt;train the model&lt;/a&gt;. Follow the code link to see the specifics.
+(If you follow the blog post links above, you’ll also find other examples that train using a different “flowers” dataset.)&lt;/p&gt;
+
+&lt;p&gt;Once the model is trained, we can use it to classify new images.  If we deploy the trained model to Cloud ML, we can make prediction requests using the Cloud ML API scalably, without any other setup.  This is great, since it makes our web app very easy to write.&lt;/p&gt;
+
+&lt;h2 id=&quot;exporting-your-trained-model-to-cloud-ml&quot;&gt;Exporting your trained model to Cloud ML&lt;/h2&gt;
+
+&lt;p&gt;To be able to &lt;a href=&quot;https://cloud.google.com/ml/docs/how-tos/getting-predictions&quot;&gt;use a trained model for prediction&lt;/a&gt;, you will need to &lt;a href=&quot;https://cloud.google.com/ml/docs/how-tos/preparing-models#adding_input_and_output_collections_to_the_graph&quot;&gt;add input and output collections&lt;/a&gt; to your model graph.  This gives Cloud ML the necessary ‘hooks’ into your deployed model graph for running predictions and returning the results.  See &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/trainer/model.py#L343&quot;&gt;this model prediction graph definition&lt;/a&gt; for an example. You’ll also need to make sure you export (save) your model as described &lt;a href=&quot;https://cloud.google.com/ml/docs/how-tos/preparing-models#exporting_saving_the_final_model&quot;&gt;here&lt;/a&gt;, including exporting the &lt;a href=&quot;https://www.tensorflow.org/versions/r0.11/how_tos/meta_graph/&quot;&gt;MetaGraph&lt;/a&gt;.  See &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/trainer/model.py#L365&quot;&gt;this method&lt;/a&gt; for example export code.&lt;/p&gt;
+
+&lt;p&gt;Once you’ve done that, you can deploy a trained model to Cloud ML like this.  First, “create the model” in Cloud ML – this does not define the actual model, but creates a name to associate with the model once you upload it. For example:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml models create hugs
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/model.sh&quot;&gt;deploy a &lt;em&gt;version&lt;/em&gt; of that model&lt;/a&gt; by pointing Cloud ML to the checkpointed model info that was saved as the final result of your training session.
+The command to do that will look something like this:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml versions create v1 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+  --model hugs &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+  --origin gs://your-gcs-bucket/path/to/model
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It will take a few minutes to create the model version. Once that’s done, you can start to access it for prediction in your apps.  Each time you deploy a new version of your model, you will use a new version name.  If you have more than one version of a model, you can set one as the default.&lt;/p&gt;
+
+&lt;h2 id=&quot;using-the-hugs-classifier-for-prediction-with-the-cloud-ml-api&quot;&gt;Using the “hugs classifier” for prediction with the Cloud ML API&lt;/h2&gt;
+
+&lt;p&gt;Once your model is deployed, there are various ways to access it.  One easy way for initial testing is just to &lt;a href=&quot;https://cloud.google.com/ml/docs/quickstarts/prediction#use_the_online_prediction_service&quot;&gt;use the gcloud sdk from the command line&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;But, for the web app, we’ll use the &lt;a href=&quot;https://developers.google.com/api-client-library/python/&quot;&gt;Google API client libs&lt;/a&gt;
+instead, to call the &lt;a href=&quot;https://cloud.google.com/ml/reference/rest/v1beta1/projects/predict&quot;&gt;Cloud ML API web service&lt;/a&gt;.
+So we just need to upload an image to the app; format the image data for input to our model; then just make the API
+call&lt;sup&gt;&lt;a href=&quot;#footnote1&quot;&gt;1&lt;/a&gt;&lt;/sup&gt; and display the response.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/motherboard.jpeg&quot; alt=&quot;a computer motherboard&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;For example, if we upload this photo of a motherboard…&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/motherboard_score.png&quot; width=&quot;600&quot; alt=&quot;a motherboard is scored as not huggable&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;… it’s judged as “not huggable”.&lt;/p&gt;
+
+&lt;p&gt;Here is a Python code snippet showing a prediction API call:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;googleapiclient&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;oauth2client.client&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;create_client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_application_default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'ml'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'v1beta1'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;
+
+
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;get_prediction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_request_json&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'instances'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]}&lt;/span&gt;
+
+  &lt;span class=&quot;c&quot;&gt;# This request will use the default model version.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'projects/{}/models/{}'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;projects&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;predict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;You can see more detail on how the uploaded image was formatted for the API request, and how the response was 
+parsed, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/web_server/predict_server.py&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;A quokka, in contrast, is (very rightly) judged as “huggable”.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/quokka_score.png&quot; width=&quot;600&quot; alt=&quot;a quokka is scored as huggable&quot; /&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;bonus-hedgehogs-vs-dandelions&quot;&gt;Bonus: Hedgehogs vs Dandelions&lt;/h2&gt;
+
+&lt;p&gt;&lt;img src=&quot;/images/hedgehog.jpg&quot; width=&quot;400&quot; alt=&quot;A hedgehog&quot; /&gt;&lt;/p&gt;
+
+&lt;p&gt;When I was experimenting with learning both the “hugs/no-hugs” and &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/flowers_preproc.sh&quot;&gt;“flowers”&lt;/a&gt; classification models, I learned something funny&lt;sup&gt;&lt;a href=&quot;#footnote2&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;.  I accidentally fed the “flowers” model an image of a hedgehog.  The hedgehog was meant for the “hugs/no-hugs” model, which will reasonably classify it as “don’t hug”.&lt;/p&gt;
+
+&lt;p&gt;It turns out that if you ask the “flowers” model what kind of flower a hedgehog is, it will classify it pretty confidently as looking most like a dandelion. This seems pretty astute of the flowers model!&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;python images_to_json.py hedgehog.jpg
+&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gcloud beta ml predict --model flowers --json-instances request.json
+KEY                             PREDICTION  SCORES
+prediction_images/hedgehog.jpg  1           &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
+&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
+daisy
+dandelion
+roses
+sunflowers
+tulips
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;(We can see this is so because &lt;code class=&quot;highlighter-rouge&quot;&gt;dandelion&lt;/code&gt; is in the ‘1’ index position in the 
+flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/code&gt;, corresponding to the prediction of ‘1’.)&lt;/p&gt;
+
+&lt;h2 id=&quot;what-next&quot;&gt;What Next?&lt;/h2&gt;
+
+&lt;p&gt;If you’re interested to learn more about TensorFlow and CloudML, there are many examples and tutorials on the &lt;a href=&quot;https://www.tensorflow.org/&quot;&gt;TensorFlow site&lt;/a&gt;.  The &lt;a href=&quot;https://cloud.google.com/ml/docs/&quot;&gt;Cloud ML docs&lt;/a&gt; go into much more detail on how to train and serve a model, including Cloud ML’s support for distributed training and hyperparamter tuning.&lt;/p&gt;
+
+&lt;p&gt;(You might also be interested in the upcoming &lt;a href=&quot;https://cloudnext.withgoogle.com/&quot;&gt;Google Cloud Next&lt;/a&gt; event, where you can hear much more about what Google is doing in the Big Data &amp;amp; Machine Learning area.)&lt;/p&gt;
+
+&lt;hr /&gt;
+
+&lt;p&gt;&lt;small&gt;
+&lt;span id=&quot;footnote1&quot;&gt;1&lt;/span&gt;: While the prediction service is in alpha, you may sometimes see a &lt;code class=&quot;highlighter-rouge&quot;&gt;502&lt;/code&gt; error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.&lt;/small&gt;&lt;/p&gt;
+
+&lt;p&gt;&lt;small&gt;
+&lt;span id=&quot;footnote2&quot;&gt;2&lt;/span&gt;: It’s possible that this amuses only me.&lt;/small&gt;&lt;/p&gt;
+
+&lt;h4 id=&quot;image-credits&quot;&gt;Image credits:&lt;/h4&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://goo.gl/images/zdGnN9&quot;&gt;https://goo.gl/images/zdGnN9&lt;/a&gt; - yarn octopus&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://goo.gl/images/LmaVMu&quot;&gt;https://goo.gl/images/LmaVMu&lt;/a&gt; - motherboard&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://goo.gl/images/XTF5h0&quot;&gt;https://goo.gl/images/XTF5h0&lt;/a&gt; - quokka&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://goo.gl/images/XTF5h0&quot;&gt;https://goo.gl/images/yuFM1C&lt;/a&gt; - hedgehog&lt;/li&gt;
+&lt;/ul&gt;
+</description>
+        <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
+        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
+        
+        <category>machine_learning</category>
+        
+        <category>Cloud_ML</category>
+        
+        
+        <category>ML</category>
+        
+      </item>
     
       <item>
         <title>Building a Slackbot that uses the Google Cloud ML Natural Language API (and runs on Kubernetes)</title>
@@ -80,12 +283,12 @@ For the most part, the NL slackbot  will keep pretty quiet. Each time there is a
 
 &lt;p&gt;(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold, by looking for where it is set &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/demo_bot.js&quot;&gt;here&lt;/a&gt;).&lt;/p&gt;
 
-&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code&gt;top entities&lt;/code&gt;.
-For example, if your bot is called &lt;code&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
+&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code class=&quot;highlighter-rouge&quot;&gt;top entities&lt;/code&gt;.
+For example, if your bot is called &lt;code class=&quot;highlighter-rouge&quot;&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-@nlpbot top entities
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;@nlpbot top entities
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Then, the result might look something like the following. (At least, if you have seeded your test channel with a combination of political news and Kubernetes posts :).&lt;/p&gt;
 
@@ -116,7 +319,7 @@ Or, you could include the wiki URLs in the results for any entities that have th
         <category>kubernetes</category>
         
         
-        <category>ml</category>
+        <category>ML</category>
         
       </item>
     
@@ -166,7 +369,7 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
         <category>machine_learning</category>
         
         
-        <category>ml</category>
+        <category>ML</category>
         
       </item>
     
@@ -194,7 +397,7 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
         <category>data_analysis</category>
         
         
-        <category>dataflow</category>
+        <category>Dataflow</category>
         
       </item>
     
@@ -275,7 +478,7 @@ We’ve also provided a &lt;a href=&quot;https://cloud.google.com/appengine/docs
 The &lt;strong&gt;ImageMagick&lt;/strong&gt; extension is now supported for PHP 5.5 apps as well.&lt;/p&gt;
 
 &lt;p&gt;We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
-In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code&gt;tmpfile()&lt;/code&gt; and &lt;code&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
+In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;tmpfile()&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
 
 &lt;p&gt;The PHP 5.5. runtime also gives you the ability to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/&quot;&gt;&lt;strong&gt;upload files directly to your application&lt;/strong&gt;&lt;/a&gt;, without the need to upload the files to &lt;a href=&quot;https://cloud.google.com/storage/docs&quot;&gt;Google Cloud Storage&lt;/a&gt; first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.&lt;/p&gt;
 
@@ -315,19 +518,19 @@ In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_ge
 
 &lt;p&gt;Then, set the gcloud default project name to point to the project you want to use for your Kubernetes cluster:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-gcloud config set project &amp;lt;project-name&amp;gt;
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud config set project &amp;lt;project-name&amp;gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Next, grab the Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/releases&quot;&gt;release binary&lt;/a&gt;.  (This example was tested with release 0.8.1).&lt;/p&gt;
 
 &lt;p&gt;Then, start up a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt; &lt;a href=&quot;...&quot;&gt;cluster&lt;/a&gt; as &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/getting-started-guides/gce.md&quot;&gt;described here&lt;/a&gt;.&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
+&lt;p&gt;where &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
 
 &lt;h2 id=&quot;create-and-format-two-persistent-disks&quot;&gt;Create and format two persistent disks&lt;/h2&gt;
 
@@ -339,19 +542,19 @@ The general series of steps required is as described &lt;a href=&quot;https://gi
 &lt;p&gt;So for the two disks used in this example, do the following.
 First create and format the mysql disk, setting the disk size to meet your needs:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
 gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;mysql-disk --device-name temp-data kubernetes-master
 gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
-gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk mysql-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;&lt;/span&gt;
+gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk mysql-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then create and format the wordpress disk.  Note that you may not want as large a disk size for the wordpress code as for the mysql disk.&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
 gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$wordpress&lt;/span&gt;-disk --device-name temp-data kubernetes-master
 gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
-gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk wordpress-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;&lt;/span&gt;
+gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk wordpress-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h2 id=&quot;start-the-mysql-pod-and-service&quot;&gt;Start the Mysql Pod and Service&lt;/h2&gt;
 
@@ -359,136 +562,136 @@ gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;
 
 &lt;h3 id=&quot;start-the-mysql-pod&quot;&gt;Start the Mysql pod&lt;/h3&gt;
 
-&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
+&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
            &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;100&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;yourpassword&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;100&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-persistent-storage&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;/var/lib/mysql&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/var/lib/mysql&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;s&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql-disk&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+            &lt;span class=&quot;s&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-disk&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;Note that we’ve defined a volume mount for &lt;code&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code&gt;mysql-disk&lt;/code&gt;) that you created.
-Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
+&lt;p&gt;Note that we’ve defined a volume mount for &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code class=&quot;highlighter-rouge&quot;&gt;mysql-disk&lt;/code&gt;) that you created.
+Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;It may take a short period before the new pod reaches the &lt;code&gt;Running&lt;/code&gt; state.
+&lt;p&gt;It may take a short period before the new pod reaches the &lt;code class=&quot;highlighter-rouge&quot;&gt;Running&lt;/code&gt; state.
 List all pods to see the status of this new pod and the cluster node that it is running on:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h4 id=&quot;check-the-running-pod-on-the-compute-instance&quot;&gt;Check the running pod on the Compute instance&lt;/h4&gt;
 
-&lt;p&gt;You can take a look at the logs for a pod by using &lt;code&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
+&lt;p&gt;You can take a look at the logs for a pod by using &lt;code class=&quot;highlighter-rouge&quot;&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code&gt;sudo -s&lt;/code&gt;, then &lt;code&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code&gt;/var/log&lt;/code&gt;, e.g. &lt;code&gt;docker.log&lt;/code&gt; and &lt;code&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code class=&quot;highlighter-rouge&quot;&gt;sudo -s&lt;/code&gt;, then &lt;code class=&quot;highlighter-rouge&quot;&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code class=&quot;highlighter-rouge&quot;&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/log&lt;/code&gt;, e.g. &lt;code class=&quot;highlighter-rouge&quot;&gt;docker.log&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
 
 &lt;h3 id=&quot;start-the-myql-service&quot;&gt;Start the Myql service&lt;/h3&gt;
 
 &lt;p&gt;We’ll define and start a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; that lets other pods access the mysql database on a known port and host.
-We will specifically name the service &lt;code&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
+We will specifically name the service &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
 
-&lt;p&gt;So if we label our Kubernetes mysql service &lt;code&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
+&lt;p&gt;So if we label our Kubernetes mysql service &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
 
 &lt;p&gt;Copy the &lt;a href=&quot;https://gist.github.com/amygdala/9f88e2ea9c37d26a8a68&quot;&gt;mysql-service.yaml&lt;/a&gt; file, which looks like this:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. 'www') or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then, start the service like this:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;You can see what services are running via:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h2 id=&quot;start-wordpress-pod-and-service&quot;&gt;Start WordPress Pod and Service&lt;/h2&gt;
 
 &lt;p&gt;Once the mysql service is up, start the wordpress pod.&lt;/p&gt;
 
-&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
+&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code class=&quot;highlighter-rouge&quot;&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontendController&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontendController&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;80&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;/var/www/html&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/var/www/html&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
-    &lt;span class=&quot;l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;yourpassword&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;s&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
           &lt;span class=&quot;c1&quot;&gt;# emptyDir: {}&lt;/span&gt;
-          &lt;span class=&quot;l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;s&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;wordpress-disk&lt;/span&gt;
-            &lt;span class=&quot;l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+            &lt;span class=&quot;s&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-disk&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Create the pod:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
+&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code class=&quot;highlighter-rouge&quot;&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h3 id=&quot;start-the-wordpress-service&quot;&gt;Start the WordPress service&lt;/h3&gt;
 
@@ -497,60 +700,60 @@ We will specifically name the service &lt;code&gt;mysql&lt;/code&gt;.  This will
 
 &lt;p&gt;The service config file looks like this:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;3000&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3000&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;l-Scalar-Plain&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l-Scalar-Plain&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. 'www') or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;80&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;Note the &lt;code&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
-&lt;code&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
+&lt;p&gt;Note the &lt;code class=&quot;highlighter-rouge&quot;&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
 
 &lt;p&gt;Note also that we’ve set the service port to 3000.  We’ll return to that shortly.&lt;/p&gt;
 
 &lt;p&gt;Start the service:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;and see it in the list of services:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then, find the external IP for your WordPress service by listing the forwarding rules for your project:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-$ gcloud compute forwarding-rules list
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ gcloud compute forwarding-rules list
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;Look for the rule called &lt;code&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
+&lt;p&gt;Look for the rule called &lt;code class=&quot;highlighter-rouge&quot;&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
 
 &lt;h2 id=&quot;visit-your-new-wordpress-blog&quot;&gt;Visit your new WordPress blog&lt;/h2&gt;
 
 &lt;p&gt;To access your new installation, you’ll first need to open up port 3000 (the port specified in the wordpress service config) in the firewall. Do this via:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-$ gcloud compute firewall-rules create wordpress --allow tcp:3000
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ gcloud compute firewall-rules create wordpress --allow tcp:3000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;This will define a firewall rule called &lt;code&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
+&lt;p&gt;This will define a firewall rule called &lt;code class=&quot;highlighter-rouge&quot;&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
 
 &lt;p&gt;Now, we can visit the running WordPress app.
 Use the external IP that you obtained above, and visit it on port 3000:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-http://&amp;lt;external_ip&amp;gt;:3000
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;http://&amp;lt;external_ip&amp;gt;:3000
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;You should see the familiar WordPress init page.&lt;/p&gt;
 
@@ -560,18 +763,18 @@ http://&amp;lt;external_ip&amp;gt;:3000
 
 &lt;p&gt;If you are just experimenting, you can take down and bring up only the pods:&lt;/p&gt;
 
-&lt;div class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
-&lt;span class=&quot;nv&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
+&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;When you restart the pods again (using the &lt;code&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
+&lt;p&gt;When you restart the pods again (using the &lt;code class=&quot;highlighter-rouge&quot;&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
 
 &lt;p&gt;If you want to shut down the entire app installation, you can delete the services as well.&lt;/p&gt;
 
 &lt;p&gt;If you are ready to turn down your Kubernetes cluster altogether, run:&lt;/p&gt;
 
-&lt;p&gt;&lt;code&gt;
-$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
-&lt;/code&gt;&lt;/p&gt;
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 </description>
         <pubDate>Tue, 13 Jan 2015 00:00:00 -0800</pubDate>
