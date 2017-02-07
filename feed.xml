@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 03 Feb 2017 16:44:27 -0800</pubDate>
-    <lastBuildDate>Fri, 03 Feb 2017 16:44:27 -0800</lastBuildDate>
+    <pubDate>Tue, 07 Feb 2017 09:34:49 -0800</pubDate>
+    <lastBuildDate>Tue, 07 Feb 2017 09:34:49 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -75,7 +75,7 @@ Now, we want to build a web app that we can upload images to, and have the app t
 
 &lt;p&gt;&lt;img src=&quot;/images/yarn_octopus_score.png&quot; width=&quot;600&quot; alt=&quot;The yarn octopus is scored as huggable&quot; /&gt;&lt;/p&gt;
 
-&lt;p&gt;&lt;strong&gt;Thanks to Julia Ferraioli for the idea, the “hugs/no-hugs” dataset and an earlier version of the prediction web app.&lt;/strong&gt;&lt;/p&gt;
+&lt;p&gt;&lt;strong&gt;Thanks to &lt;a href=&quot;https://twitter.com/juliaferraioli&quot;&gt;Julia Ferraioli&lt;/a&gt; for the idea, the “hugs/no-hugs” dataset and an earlier version of the prediction web app.&lt;/strong&gt;&lt;/p&gt;
 
 &lt;p&gt;We’ll train our “hugs/no-hugs” model on Cloud ML, and use the Cloud ML API to make it easy to build the prediction web app.&lt;/p&gt;
 
