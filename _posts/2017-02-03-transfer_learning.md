@@ -72,7 +72,7 @@ We want our web app to work like this: If you upload an image to the app:
 
 <img src="/images/yarn_octopus_score.png" width="600" alt="The yarn octopus is scored as huggable">
 
-**Thanks to Julia Ferraioli for the idea, the "hugs/no-hugs" dataset and an earlier version of the prediction web app.**
+**Thanks to [Julia Ferraioli](https://twitter.com/juliaferraioli) for the idea, the "hugs/no-hugs" dataset and an earlier version of the prediction web app.**
 
 We'll train our "hugs/no-hugs" model on Cloud ML, and use the Cloud ML API to make it easy to build the prediction web app.
 
