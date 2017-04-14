@@ -5,9 +5,216 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Tue, 07 Feb 2017 09:34:49 -0800</pubDate>
-    <lastBuildDate>Tue, 07 Feb 2017 09:34:49 -0800</lastBuildDate>
+    <pubDate>Fri, 14 Apr 2017 12:33:17 -0700</pubDate>
+    <lastBuildDate>Fri, 14 Apr 2017 12:33:17 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Running Cloud Dataflow jobs from an App Engine app</title>
+        <description>&lt;p&gt;This post looks at how you can launch &lt;a href=&quot;https://cloud.google.com/dataflow/&quot;&gt;Cloud Dataflow&lt;/a&gt; pipelines from your &lt;a href=&quot;https://cloud.google.com/appengine/&quot;&gt;App Engine&lt;/a&gt; app, in order to support &lt;a href=&quot;https://en.wikipedia.org/wiki/MapReduce&quot;&gt;MapReduce&lt;/a&gt; jobs and other data processing and analysis tasks.&lt;/p&gt;
+
+&lt;p&gt;Until recently, if you wanted to run MapReduce jobs from a Python App Engine app, you would use &lt;a href=&quot;https://github.com/GoogleCloudPlatform/appengine-mapreduce&quot;&gt;this MR library&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Now, &lt;a href=&quot;https://beam.apache.org/&quot;&gt;Apache Beam&lt;/a&gt; and &lt;a href=&quot;https://cloud.google.com/dataflow/&quot;&gt;Cloud Dataflow&lt;/a&gt; have entered the picture.  Apache Beam is a unified model for building data processing pipelines that handle bounded and unbounded data, as well as a collection of SDKs for building these pipelines. Google Cloud Dataflow is a managed service for executing parallelized data processing pipelines written using Apache Beam.&lt;/p&gt;
+
+&lt;p&gt;Dataflow allows a wide range of data processing patterns, including ETL, batch computation, and continuous computation.
+The Beam model &lt;a href=&quot;https://github.com/apache/beam/blob/master/sdks/python/apache_beam/examples/wordcount.py&quot;&gt;supports&lt;/a&gt; and subsumes MapReduce.  So, you can map your MR jobs to equivalent Beam pipelines, and Beam’s programming model makes it straightforward to extend and modify your existing MR logic.&lt;/p&gt;
+
+&lt;p&gt;The Beam Python SDK makes it easy to launch Dataflow pipeline jobs from a Python App Engine app. The SDK 
+includes a &lt;a href=&quot;https://github.com/apache/beam/blob/master/sdks/python/apache_beam/examples/snippets/snippets.py#L868&quot;&gt;Cloud Datastore &lt;em&gt;source&lt;/em&gt; and &lt;em&gt;sink&lt;/em&gt;&lt;/a&gt;.  This makes it easy to write Dataflow pipelines that support the functionality of any existing MR jobs, as well as support additional analytics.&lt;/p&gt;
+
+&lt;p&gt;In this blog post, we’ll look at an &lt;a href=&quot;https://github.com/amygdala/gae-dataflow&quot;&gt;example app&lt;/a&gt; that shows how to periodically launch a Python Dataflow pipeline from GAE, to analyze data stored in Cloud Datastore; in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the data; for example, it identifies ‘interesting’ word co-occurrences (bigrams) in the tweets, as in this snippet below.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;The example is a GAE app with two &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/an-overview-of-app-engine#services_the_building_blocks_of_app_engine&quot;&gt;services (previously, ‘modules’)&lt;/a&gt;:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;
+    &lt;p&gt;a &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/&quot;&gt;GAE Standard&lt;/a&gt; service that periodically pulls in timeline tweets from Twitter and stores them in Datastore; and&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;a &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/&quot;&gt;GAE Flexible&lt;/a&gt; service that periodically launches the Python Dataflow pipeline to analyze the tweet data in the Datastore.&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The Standard service– the one that gathers the tweets– is just for example purposes; in your own apps, you probably already have other means of collecting and storing data in Datastore.&lt;/p&gt;
+
+&lt;h2 id=&quot;building-a-service-to-define-and-launch-a-dataflow-pipeline-from-app-engine&quot;&gt;Building a service to define and launch a Dataflow pipeline from App Engine&lt;/h2&gt;
+
+&lt;p&gt;We’ll use a Flex custom runtime based on the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcr.io/google_appengine/python&lt;/code&gt; image for the service that launches the dataflow pipeline, as we’ll install the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk in the instance container(s).  So, the example includes a &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt; used to deploy the service.  As the last command in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;, we’ll start up a Gunicorn server to serve a Flask app script (&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;The Python code for this service consists of the small Flask app script (&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;), which accesses a module (&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt;) that does most of the heavy lifting in terms of defining and launching the example pipeline (in &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;).&lt;/p&gt;
+
+&lt;h3 id=&quot;setting-the-pipeline-options&quot;&gt;Setting the pipeline options&lt;/h3&gt;
+
+&lt;p&gt;As part of the process of launching a Dataflow pipeline, various options may be set.
+In order to make the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module available to the Dataflow &lt;em&gt;workers&lt;/em&gt;, the pipeline options include a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup_file&lt;/code&gt; flag.&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'project'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'staging_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/staging'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'runner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'DataflowRunner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'setup_file'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'./setup.py'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'job_name'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twcount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'max_num_workers'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'temp_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/temp'&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;This points to a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup.py&lt;/code&gt; file which specifies to package the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module using &lt;code class=&quot;highlighter-rouge&quot;&gt;setuptools&lt;/code&gt;. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
+The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.&lt;/p&gt;
+
+&lt;h2 id=&quot;a-look-at-the-dataflow-pipeline&quot;&gt;A look at the Dataflow pipeline&lt;/h2&gt;
+
+&lt;p&gt;Now let’s take a quick look at &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, to see what the Python Dataflow pipeline does.&lt;/p&gt;
+
+&lt;p&gt;It reads recent tweets from the past N days from Cloud Datastore, then
+essentially splits into three processing branches. It finds the top N most popular words in terms of
+the percentage of tweets they were found in, calculates the top N most popular URLs in terms of
+their count, and then derives relevant word co-occurrences (bigrams) using an approximation to a &lt;a href=&quot;https://en.wikipedia.org/wiki/Tf%E2%80%93idf&quot;&gt; &lt;em&gt;tf*idf&lt;/em&gt;&lt;/a&gt;
+ranking metric.  It writes the results to three BigQuery tables. (It would be equally straightforward to write results to Datastore instead/as well).&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_df_graph.png&quot; target=&quot;_blank&quot;&gt;&amp;lt;img src=”https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_df_graph.png” width=500/&amp;gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;using-datastore-as-a-pipeline-source&quot;&gt;Using Datastore as a pipeline &lt;em&gt;source&lt;/em&gt;&lt;/h3&gt;
+
+&lt;p&gt;This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.&lt;/p&gt;
+
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/main.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main.py&lt;/code&gt;&lt;/a&gt;, the app script for the GAE standard service, you can see the Tweet entity schema:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.appengine.ext&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Tweet&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Model&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;text&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;created_at&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DateTimeProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;tid&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IntegerProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;urls&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;repeated&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, we can use the &lt;a href=&quot;https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;google.cloud.proto.datastore&lt;/code&gt;&lt;/a&gt; API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the &lt;code class=&quot;highlighter-rouge&quot;&gt;created_at&lt;/code&gt; field.&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.cloud.proto.datastore.v1&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Creates a Cloud Datastore query to retrieve all Tweet entities with a
+  'created_at' date &amp;gt; N days ago.
+  &quot;&quot;&quot;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;days&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;now&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timedelta&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;add&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;datastore_helper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_property_filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'created_at'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                       &lt;span class=&quot;n&quot;&gt;PropertyFilter&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GREATER_THAN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                       &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then, we use that query to define an input source for the pipeline:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; &lt;span class=&quot;n&quot;&gt;p&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Pipeline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;c&quot;&gt;# Create a query to read entities from datastore.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Tweet'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+  &lt;span class=&quot;c&quot;&gt;# Read entities from Cloud Datastore into a PCollection.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'read from datastore'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ReadFromDatastore&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt; 
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;We can use &lt;code class=&quot;highlighter-rouge&quot;&gt;properties.get()&lt;/code&gt; on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Parse each tweet text into words, removing some 'stopwords'.&quot;&quot;&quot;&lt;/span&gt;
+
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;process&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;properties&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'text'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string_value&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lower&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;re&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;findall&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;r'[A-Za-z&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\'&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;]+'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)])&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then, this snippet from the pipeline shows how  &lt;code class=&quot;highlighter-rouge&quot;&gt;WordExtractingDoFn&lt;/code&gt; can be used as part of the Datastore input processing:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;c&quot;&gt;# Count the occurrences of each word.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;percents&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'split'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ParDo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+                    &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;with_output_types&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;unicode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'pair_with_one'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'group'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GroupByKey&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'count'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)))&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h2 id=&quot;launching-the-dataflow-pipeline-periodically-using-a-cron-job&quot;&gt;Launching the Dataflow pipeline periodically using a cron job&lt;/h2&gt;
+
+&lt;p&gt;In the example app, we want to launch a pipeline job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis.
+So, it makes sense to just set things up as an app &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron&lt;/a&gt; job, which looks like this (&lt;code class=&quot;highlighter-rouge&quot;&gt;backend&lt;/code&gt; is the name of the app service that handles this request, and the &lt;code class=&quot;highlighter-rouge&quot;&gt;url&lt;/code&gt; is the handler that launches the job):&lt;/p&gt;
+
+&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;cron&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;launch dataflow pipeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/launchpipeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 5 hours&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;backend&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;A pipeline job could of course be triggered by other means as well– e.g. as part of handling a client request to the app, or perhaps via a &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/&quot;&gt;Task Queue task&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;a-look-at-the-example-results-in-bigquery&quot;&gt;A look at the example results in BigQuery&lt;/h2&gt;
+
+&lt;p&gt;Once our example app is up and running, it periodically runs a Dataflow job that writes the results of its analysis to BigQuery.  (It would be just as easy to write results to the Datastore if that makes more sense for your workflow – or to write to multiple sources).&lt;/p&gt;
+
+&lt;p&gt;With BigQuery, it is easy to run some fun queries on the data. 
+For example, we can find recent word co-occurrences that are ‘interesting’ by our metric:&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png&quot; target=&quot;_blank&quot;&gt;&amp;lt;img src=”https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png” width=500/&amp;gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Or look for emerging word pairs, that have become ‘interesting’ in the last day or so (as of early April 2017):&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png&quot; target=&quot;_blank&quot;&gt;&amp;lt;img src=”https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png” width=500/&amp;gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;We can contrast the ‘interesting’ word pairs with the words that are simply the most popular within a given period (you can see that most of these words are common, but not particularly newsworthy):&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png&quot; target=&quot;_blank&quot;&gt;&amp;lt;img src=”https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png” width=400/&amp;gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;Or, find the most often-tweeted URLs from the past few days (some URLs are truncated in the output):&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png&quot; target=&quot;_blank&quot;&gt;&amp;lt;img src=”https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png” width=500/&amp;gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;summary-and-whats-next&quot;&gt;Summary… and what’s next?&lt;/h2&gt;
+
+&lt;p&gt;In this post, we’ve looked at how you can programmatically launch Dataflow pipelines — that read from Datastore — directly from your App Engine app.
+See the example app’s &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/README.md&quot;&gt;README&lt;/a&gt; for more detail on how to configure and run the app yourself.&lt;/p&gt;
+
+&lt;p&gt;Dataflow’s expressive programming model make it easy to build and support a wide range of scalable processing and analytics tasks.
+We hope you find the example app useful as a starting point towards defining new pipelines and running your own analytics from your App Engine apps.
+We look forward to hearing more about what you build!&lt;/p&gt;
+
+</description>
+        <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        
+        <category>dataflow</category>
+        
+        <category>gae</category>
+        
+        
+        <category>Dataflow</category>
+        
+        <category>App_Engine</category>
+        
+      </item>
     
       <item>
         <title>Learning and using your own image classifications</title>
