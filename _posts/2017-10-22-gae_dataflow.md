@@ -81,13 +81,39 @@ Once the template is created, we'll use it to launch dataflow pipeline jobs from
 
 ### Launching a Dataflow template job from the cloud console
 
-...while in our app we're going to use the REST API, can test....
+Now that you've created a pipeline template, you can test it out by launching a job based on that template from the
+[Cloud Console](https://console.cloud.google.com).  (You could also do this via the `gcloud` command-line tool).
+While it's not strictly necessary to do this prior to deploying your GAE app, it's a good sanity check.
+Note that the pipeline won't do anything interesting unless you already have tweet data in the Datastore.
 
-... open the dataflow panel, click <from template>, select custom template, find the GCS file that the template was written to.. 
-Then add the `timestamp` runtime param (it expects a formatted string as you get by ...).
-(If you had defined [metatdata](xxx), the form would have already indicated the `timestamp` runtime param... you can see this by looking at one of the google-provided templates.)
+Go to the [Dataflow pane](https://console.cloud.google.com/dataflow) of the Cloud Console, and click on "Create Job From
+Template".
 
-[** add screen shot **]
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates1.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates1.png" /></a>
+    <figcaption>_Creating a Dataflow job from a template._</figcaption>
+</figure>
+
+Select "Custom Template", then browse to your new template's location in GCS. This info was output when you ran
+`create_template.py`. (The pulldown menu includes some predefined templates as well, that you may want to explore).
+
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates2.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates2.png" /></a>
+    <figcaption>_Select "Custom Template", and indicate the path to it._</figcaption>
+</figure>
+
+Finally, set your pipeline's runtime parameter(s). In this case, we have one: `timestamp`. The pipeline is expecting a
+value in a format like this: `2017-10-22 10:18:13.491543` (you can generate such a string in python via
+`str(datetime.datetime.now())`).
+
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates3.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates3.png" /></a>
+    <figcaption>_Set your pipeline's runtime parameter(s) before running the job._</figcaption>
+</figure>
+
+Note that while we don't show it here, [you can extend your templates with additional
+metadata](https://cloud.google.com/dataflow/docs/templates/creating-templates#metadata) so that custom parameters may be
+validated when the template is executed.
 
 ### Template runtime parameters and pipeline data sources
 
@@ -144,7 +170,7 @@ the percentage of tweets they were found in, calculates the top N most popular U
 their count, and then derives relevant word co-occurrences (bigrams) using an approximation to a [ _tf*idf_](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
 ranking metric.  It writes the results to three BigQuery tables. (It would be equally straightforward to write results to Datastore instead/as well).
 
-<a href="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" width="600"/></a>
 
 ### Using Datastore as a pipeline *source*
 
@@ -177,19 +203,19 @@ Once our example app is up and running, it periodically runs a Dataflow job that
 With BigQuery, it is easy to run some fun queries on the data. 
 For example, we can find recent word co-occurrences that are 'interesting' by our metric:
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width="500"/></a>
 
 Or look for emerging word pairs, that have become 'interesting' in the last day or so (as of early April 2017):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width="500"/></a>
 
 We can contrast the 'interesting' word pairs with the words that are simply the most popular within a given period (you can see that most of these words are common, but not particularly newsworthy):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width=400/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width="400"/></a>
 
 Or, find the most often-tweeted URLs from the past few days (some URLs are truncated in the output):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width="500"/></a>
 
 
 ## Summary... and what's next?

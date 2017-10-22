@@ -71,7 +71,7 @@ the percentage of tweets they were found in, calculates the top N most popular U
 their count, and then derives relevant word co-occurrences (bigrams) using an approximation to a [ _tf*idf_](https://en.wikipedia.org/wiki/Tf%E2%80%93idf)
 ranking metric.  It writes the results to three BigQuery tables. (It would be equally straightforward to write results to Datastore instead/as well).
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_df_graph.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_df_graph.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_df_graph.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_df_graph.png" width="500"/></a>
 
 ### Using Datastore as a pipeline *source*
 
@@ -173,19 +173,19 @@ Once our example app is up and running, it periodically runs a Dataflow job that
 With BigQuery, it is easy to run some fun queries on the data. 
 For example, we can find recent word co-occurrences that are 'interesting' by our metric:
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width="500"/></a>
 
 Or look for emerging word pairs, that have become 'interesting' in the last day or so (as of early April 2017):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width="500"/></a>
 
 We can contrast the 'interesting' word pairs with the words that are simply the most popular within a given period (you can see that most of these words are common, but not particularly newsworthy):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width=400/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width="400"/></a>
 
 Or, find the most often-tweeted URLs from the past few days (some URLs are truncated in the output):
 
-<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width=500/></a>
+<a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width="500"/></a>
 
 
 ## Summary... and what's next?
