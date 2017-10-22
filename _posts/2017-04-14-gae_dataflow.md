@@ -63,7 +63,7 @@ The indicated code is  gathered in a package that is built as a source distribut
 
 ## A look at the Dataflow pipeline
 
-Now let's take a quick look at [`dfpipe/pipe.py`](https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py), to see what the Python Dataflow pipeline does. 
+Now let's take a quick look at [`dfpipe/pipe.py`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py), to see what the Python Dataflow pipeline does.
 
 It reads recent tweets from the past N days from Cloud Datastore, then
 essentially splits into three processing branches. It finds the top N most popular words in terms of
@@ -77,7 +77,7 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
 
 This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.
 
-In [`main.py`](https://github.com/amygdala/gae-dataflow/blob/master/main.py), the app script for the GAE standard service, you can see the Tweet entity schema:
+In [`main.py`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py), the app script for the GAE standard service, you can see the Tweet entity schema:
 
 ```python
 from google.appengine.ext import ndb
@@ -89,7 +89,7 @@ class Tweet(ndb.Model):
   urls = ndb.StringProperty(repeated=True)
 ```
 
-In [`dfpipe/pipe.py`](https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py), we can use the [`google.cloud.proto.datastore`](https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1) API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the `created_at` field.
+In [`dfpipe/pipe.py`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py), we can use the [`google.cloud.proto.datastore`](https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1) API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the `created_at` field.
 
 ```python
 from google.cloud.proto.datastore.v1 import query_pb2
