@@ -22,7 +22,7 @@ The Beam model [supports](https://github.com/apache/beam/blob/master/sdks/python
 The Beam Python SDK makes it easy to launch Dataflow pipeline jobs from a Python App Engine app. The SDK 
 includes a [Cloud Datastore *source* and *sink*](https://github.com/apache/beam/blob/master/sdks/python/apache_beam/examples/snippets/snippets.py#L868).  This makes it easy to write Dataflow pipelines that support the functionality of any existing MR jobs, as well as support additional analytics.
 
-In this blog post, we'll look at an [example app](https://github.com/amygdala/gae-dataflow) that shows how to periodically launch a Python Dataflow pipeline from GAE, to analyze data stored in Cloud Datastore; in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the data; for example, it identifies 'interesting' word co-occurrences (bigrams) in the tweets, as in this snippet below.
+In this blog post, we'll look at an [example app](https://github.com/amygdala/gae-dataflow/tree/master/sdk_launch) that shows how to periodically launch a Python Dataflow pipeline from GAE, to analyze data stored in [Cloud Datastore](https://cloud.google.com/datastore/); in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the data; for example, it identifies 'interesting' word co-occurrences (bigrams) in the tweets, as in this snippet below.
 
 <a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" /></a>
 
@@ -36,9 +36,9 @@ The Standard service-- the one that gathers the tweets-- is just for example pur
 
 ## Building a service to define and launch a Dataflow pipeline from App Engine
 
-We'll use a Flex custom runtime based on the `gcr.io/google_appengine/python` image for the service that launches the dataflow pipeline, as we'll install the `gcloud` sdk in the instance container(s).  So, the example includes a `Dockerfile` used to deploy the service.  As the last command in the `Dockerfile`, we'll start up a Gunicorn server to serve a Flask app script (`main_df.py`). 
+We'll use a Flex custom runtime based on the `gcr.io/google_appengine/python` image for the service that launches the dataflow pipeline, as we'll install the `gcloud` sdk in the instance container(s).  So, the example includes a [`Dockerfile`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile) used to deploy the service.  As the last command in the `Dockerfile`, we'll start up a Gunicorn server to serve a Flask app script (`main_df.py`). 
 
-The Python code for this service consists of the small Flask app script (`main_df.py`), which accesses a module (`dfpipe`) that does most of the heavy lifting in terms of defining and launching the example pipeline (in `dfpipe/pipe.py`).
+The Python code for this service consists of the small Flask app script ([`main_df.py`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py)), which accesses a module (`dfpipe`) that does most of the heavy lifting in terms of defining and launching the example pipeline (in [`dfpipe/pipe.py`](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py)).
 
 ### Setting the pipeline options
 
@@ -191,9 +191,9 @@ Or, find the most often-tweeted URLs from the past few days (some URLs are trunc
 ## Summary... and what's next?
 
 In this post, we've looked at how you can programmatically launch Dataflow pipelines — that read from Datastore — directly from your App Engine app.
-See the example app's [README](https://github.com/amygdala/gae-dataflow/blob/master/README.md) for more detail on how to configure and run the app yourself.
+See the example app's [README](https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/README.md) for more detail on how to configure and run the app yourself.
 
-Dataflow's expressive programming model make it easy to build and support a wide range of scalable processing and analytics tasks.
+Dataflow's expressive programming model makes it easy to build and support a wide range of scalable processing and analytics tasks.
 We hope you find the example app useful as a starting point towards defining new pipelines and running your own analytics from your App Engine apps.
 We look forward to hearing more about what you build!
 
