@@ -33,17 +33,17 @@
       </a>
 
       <div class="trigger">
-
-
+        
+          
           <a class="page-link" href="/about/">About</a>
-
-
-
-
-
-
-
-
+          
+        
+          
+        
+          
+        
+          
+        
       </div>
     </nav>
 
@@ -71,10 +71,10 @@
 <p>Dataflow allows a wide range of data processing patterns, including ETL, batch computation, and continuous computation.
 The Beam model <a href="https://github.com/apache/beam/blob/master/sdks/python/apache_beam/examples/wordcount.py">supports</a> and subsumes MapReduce.  So, you can map your MR jobs to equivalent Beam pipelines, and Beam’s programming model makes it straightforward to extend and modify your existing MR logic.</p>
 
-<p>The Beam Python SDK makes it easy to launch Dataflow pipeline jobs from a Python App Engine app. The SDK
+<p>The Beam Python SDK makes it easy to launch Dataflow pipeline jobs from a Python App Engine app. The SDK 
 includes a <a href="https://github.com/apache/beam/blob/master/sdks/python/apache_beam/examples/snippets/snippets.py#L868">Cloud Datastore <em>source</em> and <em>sink</em></a>.  This makes it easy to write Dataflow pipelines that support the functionality of any existing MR jobs, as well as support additional analytics.</p>
 
-<p>In this blog post, we’ll look at an <a href="https://github.com/amygdala/gae-dataflow">example app</a> that shows how to periodically launch a Python Dataflow pipeline from GAE, to analyze data stored in Cloud Datastore; in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the data; for example, it identifies ‘interesting’ word co-occurrences (bigrams) in the tweets, as in this snippet below.</p>
+<p>In this blog post, we’ll look at an <a href="https://github.com/amygdala/gae-dataflow/tree/master/sdk_launch">example app</a> that shows how to periodically launch a Python Dataflow pipeline from GAE, to analyze data stored in <a href="https://cloud.google.com/datastore/">Cloud Datastore</a>; in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the data; for example, it identifies ‘interesting’ word co-occurrences (bigrams) in the tweets, as in this snippet below.</p>
 
 <p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" /></a></p>
 
@@ -93,9 +93,9 @@ includes a <a href="https://github.com/apache/beam/blob/master/sdks/python/apach
 
 <h2 id="building-a-service-to-define-and-launch-a-dataflow-pipeline-from-app-engine">Building a service to define and launch a Dataflow pipeline from App Engine</h2>
 
-<p>We’ll use a Flex custom runtime based on the <code class="highlighter-rouge">gcr.io/google_appengine/python</code> image for the service that launches the dataflow pipeline, as we’ll install the <code class="highlighter-rouge">gcloud</code> sdk in the instance container(s).  So, the example includes a <code class="highlighter-rouge">Dockerfile</code> used to deploy the service.  As the last command in the <code class="highlighter-rouge">Dockerfile</code>, we’ll start up a Gunicorn server to serve a Flask app script (<code class="highlighter-rouge">main_df.py</code>).</p>
+<p>We’ll use a Flex custom runtime based on the <code class="highlighter-rouge">gcr.io/google_appengine/python</code> image for the service that launches the dataflow pipeline, as we’ll install the <code class="highlighter-rouge">gcloud</code> sdk in the instance container(s).  So, the example includes a <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile"><code class="highlighter-rouge">Dockerfile</code></a> used to deploy the service.  As the last command in the <code class="highlighter-rouge">Dockerfile</code>, we’ll start up a Gunicorn server to serve a Flask app script (<code class="highlighter-rouge">main_df.py</code>).</p>
 
-<p>The Python code for this service consists of the small Flask app script (<code class="highlighter-rouge">main_df.py</code>), which accesses a module (<code class="highlighter-rouge">dfpipe</code>) that does most of the heavy lifting in terms of defining and launching the example pipeline (in <code class="highlighter-rouge">dfpipe/pipe.py</code>).</p>
+<p>The Python code for this service consists of the small Flask app script (<a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py"><code class="highlighter-rouge">main_df.py</code></a>), which accesses a module (<code class="highlighter-rouge">dfpipe</code>) that does most of the heavy lifting in terms of defining and launching the example pipeline (in <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>).</p>
 
 <h3 id="setting-the-pipeline-options">Setting the pipeline options</h3>
 
@@ -114,12 +114,12 @@ In order to make the <code class="highlighter-rouge">dfpipe</code> module availa
 </code></pre>
 </div>
 
-<p>This points to a <code class="highlighter-rouge">setup.py</code> file which specifies to package the <code class="highlighter-rouge">dfpipe</code> module using <code class="highlighter-rouge">setuptools</code>. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well.
+<p>This points to a <code class="highlighter-rouge">setup.py</code> file which specifies to package the <code class="highlighter-rouge">dfpipe</code> module using <code class="highlighter-rouge">setuptools</code>. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
 The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.</p>
 
 <h2 id="a-look-at-the-dataflow-pipeline">A look at the Dataflow pipeline</h2>
 
-<p>Now let’s take a quick look at <a href="https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, to see what the Python Dataflow pipeline does.</p>
+<p>Now let’s take a quick look at <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, to see what the Python Dataflow pipeline does.</p>
 
 <p>It reads recent tweets from the past N days from Cloud Datastore, then
 essentially splits into three processing branches. It finds the top N most popular words in terms of
@@ -127,13 +127,13 @@ the percentage of tweets they were found in, calculates the top N most popular U
 their count, and then derives relevant word co-occurrences (bigrams) using an approximation to a <a href="https://en.wikipedia.org/wiki/Tf%E2%80%93idf"> <em>tf*idf</em></a>
 ranking metric.  It writes the results to three BigQuery tables. (It would be equally straightforward to write results to Datastore instead/as well).</p>
 
-<p><a href="https://amy-jo.storage.googleapis.com/images/gae_df_graph.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_df_graph.png" width=500/></a></p>
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_df_graph.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_df_graph.png" width="500" /></a></p>
 
 <h3 id="using-datastore-as-a-pipeline-source">Using Datastore as a pipeline <em>source</em></h3>
 
 <p>This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.</p>
 
-<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/main.py"><code class="highlighter-rouge">main.py</code></a>, the app script for the GAE standard service, you can see the Tweet entity schema:</p>
+<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py"><code class="highlighter-rouge">main.py</code></a>, the app script for the GAE standard service, you can see the Tweet entity schema:</p>
 
 <div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">google.appengine.ext</span> <span class="kn">import</span> <span class="n">ndb</span>
 <span class="k">class</span> <span class="nc">Tweet</span><span class="p">(</span><span class="n">ndb</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
@@ -145,7 +145,7 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
 </code></pre>
 </div>
 
-<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, we can use the <a href="https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1"><code class="highlighter-rouge">google.cloud.proto.datastore</code></a> API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the <code class="highlighter-rouge">created_at</code> field.</p>
+<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, we can use the <a href="https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1"><code class="highlighter-rouge">google.cloud.proto.datastore</code></a> API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the <code class="highlighter-rouge">created_at</code> field.</p>
 
 <div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">google.cloud.proto.datastore.v1</span> <span class="kn">import</span> <span class="n">query_pb2</span>
 <span class="k">def</span> <span class="nf">make_query</span><span class="p">(</span><span class="n">kind</span><span class="p">):</span>
@@ -174,7 +174,7 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
   <span class="c"># Read entities from Cloud Datastore into a PCollection.</span>
   <span class="n">lines</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span>
       <span class="o">|</span> <span class="s">'read from datastore'</span> <span class="o">&gt;&gt;</span> <span class="n">ReadFromDatastore</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span>
-  <span class="o">...</span>
+  <span class="o">...</span> 
 </code></pre>
 </div>
 
@@ -225,30 +225,29 @@ So, it makes sense to just set things up as an app <a href="https://cloud.google
 
 <p>Once our example app is up and running, it periodically runs a Dataflow job that writes the results of its analysis to BigQuery.  (It would be just as easy to write results to the Datastore if that makes more sense for your workflow – or to write to multiple sources).</p>
 
-<p>With BigQuery, it is easy to run some fun queries on the data.
+<p>With BigQuery, it is easy to run some fun queries on the data. 
 For example, we can find recent word co-occurrences that are ‘interesting’ by our metric:</p>
 
-<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width=500/></a></p>
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width="500" /></a></p>
 
 <p>Or look for emerging word pairs, that have become ‘interesting’ in the last day or so (as of early April 2017):</p>
 
-<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width=500/></a></p>
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width="500" /></a></p>
 
 <p>We can contrast the ‘interesting’ word pairs with the words that are simply the most popular within a given period (you can see that most of these words are common, but not particularly newsworthy):</p>
 
-<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width=400/></a></p>
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width="400" /></a></p>
 
 <p>Or, find the most often-tweeted URLs from the past few days (some URLs are truncated in the output):</p>
 
-<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width=500/></a>
-</p>
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width="500" /></a></p>
 
 <h2 id="summary-and-whats-next">Summary… and what’s next?</h2>
 
 <p>In this post, we’ve looked at how you can programmatically launch Dataflow pipelines — that read from Datastore — directly from your App Engine app.
-See the example app’s <a href="https://github.com/amygdala/gae-dataflow/blob/master/README.md">README</a> for more detail on how to configure and run the app yourself.</p>
+See the example app’s <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/README.md">README</a> for more detail on how to configure and run the app yourself.</p>
 
-<p>Dataflow’s expressive programming model make it easy to build and support a wide range of scalable processing and analytics tasks.
+<p>Dataflow’s expressive programming model makes it easy to build and support a wide range of scalable processing and analytics tasks.
 We hope you find the example app useful as a starting point towards defining new pipelines and running your own analytics from your App Engine apps.
 We look forward to hearing more about what you build!</p>
 
@@ -258,11 +257,11 @@ We look forward to hearing more about what you build!</p>
 </div>
 
 Tags:
-
+  
     <a href="/tag/dataflow.html">dataflow</a>&nbsp
-
+  
     <a href="/tag/gae.html">gae</a>&nbsp
-
+  
 </ul>
 
       </div>
@@ -284,7 +283,7 @@ Tags:
 
       <div class="footer-col  footer-col-2">
         <ul class="social-media-list">
-
+          
           <li>
             <a href="https://github.com/amygdala">
               <span class="icon  icon--github">
@@ -296,9 +295,9 @@ Tags:
               <span class="username">amygdala</span>
             </a>
           </li>
+          
 
-
-
+          
           <li>
             <a href="https://twitter.com/amygdala">
               <span class="icon  icon--twitter">
@@ -311,7 +310,7 @@ Tags:
               <span class="username">amygdala</span>
             </a>
           </li>
-
+          
         </ul>
       </div>
 

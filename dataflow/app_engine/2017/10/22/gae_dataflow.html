@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Running Cloud Dataflow template jobs from App Engine Standard</title>
+  <meta name="description" content="This post [***… templates… runtime vars… **]">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://amygdala.github.io/dataflow/app_engine/2017/10/22/gae_dataflow.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Amy on GCP</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Running Cloud Dataflow template jobs from App Engine Standard</h1>
+    <p class="post-meta">Oct 22, 2017</p>
+  </header>
+
+  <article class="post-content">
+    <p>This post [***… templates… runtime vars… **]</p>
+
+<p>This post builds on a <a href="http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html">previous post</a>, which showed how you can periodically launch a Python Dataflow pipeline from <a href="https://cloud.google.com/appengine/">App Engine</a>, in order to support <a href="https://en.wikipedia.org/wiki/MapReduce">MapReduce</a> jobs and other data processing and analysis tasks.<br />
+The pipeline used in this example analyzes data stored in <a href="xxx">Cloud Datastore</a> — in this case, stored tweets from Twitter.  The pipeline does several sorts of analysis on the tweet data; for example, it identifies ‘interesting’ word co-occurrences (bigrams) in the tweets.</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq2.png" /></a></p>
+
+<p>This earlier example used a <a href="https://cloud.google.com/appengine/docs/flexible/">GAE Flexible</a>
+<a href="https://cloud.google.com/appengine/docs/standard/python/an-overview-of-app-engine#services_the_building_blocks_of_app_engine">service</a> 
+to periodically launch a Python Dataflow pipeline.  This was necessary at the time, because we needed to install the <a href="xxx"><code class="highlighter-rouge">gcloud</code> sdk</a> in the instance container(s) in order to launch the pipelines.</p>
+
+<p>Since then, Cloud Dataflow <a href="https://cloud.google.com/dataflow/docs/templates/overview">job templates</a> have come into the picture for the Python SDK. Dataflow templates allow you to stage your pipelines on Google Cloud Storage and execute them from a variety of environments. This can have a number of benefits:</p>
+
+<ul>
+  <li>With templates, you don’t have to recompile your code every time you execute a pipeline.</li>
+  <li>This means that you don’t need to launch your pipeline from a development environment or worry about dependencies.</li>
+  <li>It’s much easier for non-technical users to launch pipelines using templates.  There’s a REST API; and you can use 
+the <a href="xxx">Google Cloud Platform Console</a>, or launch via the <code class="highlighter-rouge">gcloud</code> command-line interface.</li>
+</ul>
+
+<p>In this post, we’ll show how to use the Dataflow job template <a href="xxx">REST API</a> to periodically launch the Tweet-analytics Dataflow pipeline described in the <a href="xxx">earlier post</a>.  Because we’re now just calling a REST API, and no longer need to use the <code class="highlighter-rouge">gcloud</code> sdk, we can build a simpler <a href="https://cloud.google.com/appengine/docs/standard/">App Engine Standard</a> app.</p>
+
+<p>With templates, you can use <a href="xxx">runtime parameters</a> to customize the execution.  We’ll use that feature in this example. (There are some current limitations on where you can use runtime parameters, and we’ll see an example of that as well).</p>
+
+<h2 id="defining-a-parameterized-dataflow-pipeline-and-creating-a-template">Defining a parameterized Dataflow pipeline and creating a template</h2>
+
+<p>The first step in building our app is defining and creating a Dataflow template.</p>
+
+<p>…. parameterized pipeline …. the pipeline definition in <code class="highlighter-rouge">dfpipe/pipe.py</code> to build the template.  As part
+of the pipeline definition, it’s specified that the pipeline takes a runtime argument, <code class="highlighter-rouge">timestamp</code>.</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="nc">UserOptions</span><span class="p">(</span><span class="n">PipelineOptions</span><span class="p">):</span>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_add_argparse_args</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">parser</span><span class="p">):</span>
+      <span class="n">parser</span><span class="o">.</span><span class="n">add_value_provider_argument</span><span class="p">(</span><span class="s">'--timestamp'</span><span class="p">,</span> <span class="nb">type</span><span class="o">=</span><span class="nb">str</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>Then in the pipeline, that arg can be <a href="xxx_gh">accessed</a> ….</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code>  <span class="n">user_options</span> <span class="o">=</span> <span class="n">pipeline_options</span><span class="o">.</span><span class="n">view_as</span><span class="p">(</span><span class="n">UserOptions</span><span class="p">)</span>
+  <span class="o">...</span>
+  <span class="n">wc_records</span> <span class="o">=</span> <span class="n">top_percents</span> <span class="o">|</span> <span class="s">'format'</span> <span class="o">&gt;&gt;</span> <span class="n">beam</span><span class="o">.</span><span class="n">FlatMap</span><span class="p">(</span>
+      <span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">[{</span><span class="s">'word'</span><span class="p">:</span> <span class="n">xx</span><span class="p">[</span><span class="mi">0</span><span class="p">],</span> <span class="s">'percent'</span><span class="p">:</span> <span class="n">xx</span><span class="p">[</span><span class="mi">1</span><span class="p">],</span> 
+                  <span class="s">'ts'</span><span class="p">:</span> <span class="n">user_options</span><span class="o">.</span><span class="n">timestamp</span><span class="o">.</span><span class="n">get</span><span class="p">()}</span> <span class="k">for</span> <span class="n">xx</span> <span class="ow">in</span> <span class="n">x</span><span class="p">])</span>
+</code></pre>
+</div>
+
+<p>The <a href="xxx_gh">template creation script</a> accesses <a href="xxx_gh">the pipeline definition</a>
+… https://cloud.google.com/dataflow/docs/templates/creating-templates#creating-and-staging-templates … 
+… and uses the <code class="highlighter-rouge">--template_location</code> flag…</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="n">pipeline_options</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="s">'project'</span><span class="p">:</span> <span class="n">PROJECT</span><span class="p">,</span>
+    <span class="s">'staging_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/staging'</span><span class="p">,</span>
+    <span class="s">'runner'</span><span class="p">:</span> <span class="s">'DataflowRunner'</span><span class="p">,</span>
+    <span class="s">'setup_file'</span><span class="p">:</span> <span class="s">'./setup.py'</span><span class="p">,</span>
+    <span class="s">'job_name'</span><span class="p">:</span> <span class="n">PROJECT</span> <span class="o">+</span> <span class="s">'-twcount'</span><span class="p">,</span>
+    <span class="s">'temp_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/temp'</span><span class="p">,</span>
+    <span class="s">'template_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/templates/'</span> <span class="o">+</span> <span class="n">PROJECT</span> <span class="o">+</span> <span class="s">'-twproc_tmpl'</span>
+<span class="p">}</span>
+<span class="n">pipeline_options</span> <span class="o">=</span> <span class="n">PipelineOptions</span><span class="o">.</span><span class="n">from_dictionary</span><span class="p">(</span><span class="n">pipeline_options</span><span class="p">)</span>
+<span class="n">pipe</span><span class="o">.</span><span class="n">process_datastore_tweets</span><span class="p">(</span><span class="n">PROJECT</span><span class="p">,</span> <span class="n">DATASET</span><span class="p">,</span> <span class="n">pipeline_options</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<p>Once the template is created, we’ll use it to launch dataflow pipeline jobs from our GAE app….</p>
+
+<h3 id="launching-a-dataflow-template-job-from-the-cloud-console">Launching a Dataflow template job from the cloud console</h3>
+
+<p>Now that you’ve created a pipeline template, you can test it out by launching a job based on that template from the
+<a href="https://console.cloud.google.com">Cloud Console</a>.  (You could also do this via the <code class="highlighter-rouge">gcloud</code> command-line tool).
+While it’s not strictly necessary to do this prior to deploying your GAE app, it’s a good sanity check.
+Note that the pipeline won’t do anything interesting unless you already have tweet data in the Datastore.</p>
+
+<p>Go to the <a href="https://console.cloud.google.com/dataflow">Dataflow pane</a> of the Cloud Console, and click on “Create Job From
+Template”.</p>
+
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates1.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates1.png" /></a>
+    <figcaption>_Creating a Dataflow job from a template._</figcaption>
+</figure>
+
+<p>Select “Custom Template”, then browse to your new template’s location in GCS. This info was output when you ran
+<code class="highlighter-rouge">create_template.py</code>. (The pulldown menu includes some predefined templates as well, that you may want to explore).</p>
+
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates2.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates2.png" /></a>
+    <figcaption>_Select "Custom Template", and indicate the path to it._</figcaption>
+</figure>
+
+<p>Finally, set your pipeline’s runtime parameter(s). In this case, we have one: <code class="highlighter-rouge">timestamp</code>. The pipeline is expecting a
+value in a format like this: <code class="highlighter-rouge">2017-10-22 10:18:13.491543</code> (you can generate such a string in python via
+<code class="highlighter-rouge">str(datetime.datetime.now())</code>).</p>
+
+<figure>
+    <a href="https://storage.googleapis.com/amy-jo/images/job_templates3.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/job_templates3.png" /></a>
+    <figcaption>_Set your pipeline's runtime parameter(s) before running the job._</figcaption>
+</figure>
+
+<p>Note that while we don’t show it here, <a href="https://cloud.google.com/dataflow/docs/templates/creating-templates#metadata">you can extend your templates with additional
+metadata</a> so that custom parameters may be
+validated when the template is executed.</p>
+
+<h3 id="template-runtime-parameters-and-pipeline-data-sources">Template runtime parameters and pipeline data sources</h3>
+
+<p>…</p>
+
+<h2 id="overview-of-the-app-engine-app">Overview of the App Engine app</h2>
+
+<p>…a <a href="https://cloud.google.com/appengine/docs/standard/">GAE Standard</a> app that periodically pulls in timeline tweets
+ from Twitter and stores them in Datastore; and launches… serves as a cron job…</p>
+
+<p>…the part that gathers the tweets– is just for example purposes; in your own apps, you probably already have some other
+means of collecting and storing data in Datastore.</p>
+
+<h2 id="xxxx">xxxx</h2>
+
+<p>The Python code for the app consists of a webapp script (<code class="highlighter-rouge">main.py</code>), which does two things: [** pulls in tweets
+periodically, and launches a DF pipeline via the template periodically **]</p>
+
+<p>accesses a module (<code class="highlighter-rouge">dfpipe</code>) that does most of the heavy lifting in terms of defining and launching the example pipeline
+(in <code class="highlighter-rouge">dfpipe/pipe.py</code>).</p>
+
+<h3 id="setting-the-pipeline-options">Setting the pipeline options</h3>
+
+<p>As part of the process of launching a Dataflow pipeline, various options may be set.
+In order to make the <code class="highlighter-rouge">dfpipe</code> module available to the Dataflow <em>workers</em>, the pipeline options include a <code class="highlighter-rouge">setup_file</code> flag.</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code>  <span class="n">pipeline_options</span> <span class="o">=</span> <span class="p">{</span>
+      <span class="s">'project'</span><span class="p">:</span> <span class="n">PROJECT</span><span class="p">,</span>
+      <span class="s">'staging_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/staging'</span><span class="p">,</span>
+      <span class="s">'runner'</span><span class="p">:</span> <span class="s">'DataflowRunner'</span><span class="p">,</span>
+      <span class="s">'setup_file'</span><span class="p">:</span> <span class="s">'./setup.py'</span><span class="p">,</span>
+      <span class="s">'job_name'</span><span class="p">:</span> <span class="n">PROJECT</span> <span class="o">+</span> <span class="s">'-twcount'</span><span class="p">,</span>
+      <span class="s">'max_num_workers'</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
+      <span class="s">'temp_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/temp'</span>
+  <span class="p">}</span>
+</code></pre>
+</div>
+
+<p>This points to a <code class="highlighter-rouge">setup.py</code> file which specifies to package the <code class="highlighter-rouge">dfpipe</code> module using <code class="highlighter-rouge">setuptools</code>. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
+The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.</p>
+
+<h2 id="a-look-at-the-dataflow-pipeline">A look at the Dataflow pipeline</h2>
+
+<p>Now let’s take a quick look at <a href="https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, to see what the Python Dataflow pipeline does.</p>
+
+<p>It reads recent tweets from the past N days from Cloud Datastore, then
+essentially splits into three processing branches. It finds the top N most popular words in terms of
+the percentage of tweets they were found in, calculates the top N most popular URLs in terms of
+their count, and then derives relevant word co-occurrences (bigrams) using an approximation to a <a href="https://en.wikipedia.org/wiki/Tf%E2%80%93idf"> <em>tf*idf</em></a>
+ranking metric.  It writes the results to three BigQuery tables. (It would be equally straightforward to write results to Datastore instead/as well).</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/df_template_pipe.png" width="600" /></a></p>
+
+<h3 id="using-datastore-as-a-pipeline-source">Using Datastore as a pipeline <em>source</em></h3>
+
+<p>….</p>
+
+<h2 id="launching-the-dataflow-pipeline-periodically-using-a-cron-job">Launching the Dataflow pipeline periodically using a cron job</h2>
+
+<p>In the example app, we want to launch a pipeline job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis.
+So, it makes sense to just set things up as an app <a href="https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml">cron</a> job, which looks like this:</p>
+
+<div class="language-yaml highlighter-rouge"><pre class="highlight"><code><span class="s">cron</span><span class="pi">:</span>
+<span class="pi">-</span> <span class="s">description</span><span class="pi">:</span> <span class="s">fetch tweets</span>
+  <span class="s">url</span><span class="pi">:</span> <span class="s">/timeline</span>
+  <span class="s">schedule</span><span class="pi">:</span> <span class="s">every 17 minutes</span>
+  <span class="s">target</span><span class="pi">:</span> <span class="s">default</span>
+<span class="pi">-</span> <span class="s">description</span><span class="pi">:</span> <span class="s">launch dataflow pipeline</span>
+  <span class="s">url</span><span class="pi">:</span> <span class="s">/launchtemplatejob</span>
+  <span class="s">schedule</span><span class="pi">:</span> <span class="s">every 5 hours</span>
+  <span class="s">target</span><span class="pi">:</span> <span class="s">default</span>
+</code></pre>
+</div>
+
+<p>A pipeline job could of course be triggered by other means as well– e.g. as part of handling a client request to the app, or perhaps via a <a href="https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/">Task Queue task</a>.</p>
+
+<h2 id="a-look-at-the-example-results-in-bigquery">A look at the example results in BigQuery</h2>
+
+<p>Once our example app is up and running, it periodically runs a Dataflow job that writes the results of its analysis to BigQuery.  (It would be just as easy to write results to the Datastore if that makes more sense for your workflow – or to write to multiple sources).</p>
+
+<p>With BigQuery, it is easy to run some fun queries on the data. 
+For example, we can find recent word co-occurrences that are ‘interesting’ by our metric:</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq3.png" width="500" /></a></p>
+
+<p>Or look for emerging word pairs, that have become ‘interesting’ in the last day or so (as of early April 2017):</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_twitter_bq4.png" width="500" /></a></p>
+
+<p>We can contrast the ‘interesting’ word pairs with the words that are simply the most popular within a given period (you can see that most of these words are common, but not particularly newsworthy):</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width="400" /></a></p>
+
+<p>Or, find the most often-tweeted URLs from the past few days (some URLs are truncated in the output):</p>
+
+<p><a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_urls1.png" width="500" /></a></p>
+
+<h2 id="summary-and-whats-next">Summary… and what’s next?</h2>
+
+<p>In this post, we’ve looked at how you can programmatically launch Dataflow pipelines — that read from Datastore — directly from your App Engine app.
+See the example app’s <a href="https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/README.md">README</a> for more detail on how to configure and run the app yourself.</p>
+
+<p>Dataflow’s expressive programming model make it easy to build and support a wide range of scalable processing and analytics tasks.
+We hope you find the example app useful as a starting point towards defining new pipelines and running your own analytics from your App Engine apps.
+We look forward to hearing more about what you build!</p>
+
+
+  </article>
+
+</div>
+
+Tags:
+  
+    <a href="/tag/dataflow.html">dataflow</a>&nbsp
+  
+    <a href="/tag/gae.html">gae</a>&nbsp
+  
+</ul>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <!-- <h2 class="footer-heading">Amy on GCP</h2> -->
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <!-- <li>Amy on GCP</li> -->
+          <li><a href="mailto:"></a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/amygdala">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/amygdala">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
