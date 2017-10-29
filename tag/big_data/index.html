@@ -6,11 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Using the Cloud Vision API with Twilio Messaging on Kubernetes</title>
-  <meta name="description" content="The Google Cloud Vision API has just moved to GA (General Availability) status.">
+  <title>Amy on GCP</title>
+  <meta name="description" content="">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://amygdala.github.io/ml/2016/04/22/vision-api.html">
+  <link rel="canonical" href="http://amygdala.github.io/tag/big_data/">
   <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
 </head>
 
@@ -86,60 +86,16 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <div class="post">
+        <h2>big_data</h2>
+<ul>
 
-  <header class="post-header">
-    <h1 class="post-title">Using the Cloud Vision API with Twilio Messaging on Kubernetes</h1>
-    <p class="post-meta">Apr 22, 2016</p>
-  </header>
+  <li><a href="/dataflow/2016/02/15/dataflow.html">Cloud Dataflow News</a> (15 Feb 2016 )</li>
 
-  <article class="post-content">
-    <p>The <a href="https://cloud.google.com/vision/">Google Cloud Vision API</a> has just moved to GA (General Availability) status.</p>
-
-<p><img src="https://amy-jo.storage.googleapis.com/images/cat_and_laptop.jpg" width="300" /></p>
-
-<p>The Vision API lets you create applications that can classify images into thousands of categories (e.g., “sailboat”, “lion”… or <strong>cat</strong> and <strong>laptop</strong> as above); can detect faces and other objects in images (including predicting “sentiment”); can perform OCR (detection of text in images); can detect landmarks (like the Eiffel Tower); can detect logos; and can moderate for offensive content.
-You can <a href="https://www.youtube.com/watch?v=ud2Ipnq0pTU">see Jeff Dean demoing the Vision API in this video</a>.</p>
-
-<p><a href="https://github.com/GoogleCloudPlatform/cloud-vision">This github repo</a> has a number of Vision API examples, written in different languages, and showing off different aspects of the Cloud Vision API. Some of the examples are simple scripts, and others are a bit more complex.</p>
-
-<p>A <a href="https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-k8s">new example called ‘twilio-k8s’</a> has just been added to the repo. It shows
-how to run the
-<a href="https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-labels">“What’s That?” app</a> (built by <a href="http://www.blog.juliaferraioli.com/2016/02/exploring-world-using-vision-twilio.html">Julia
-Ferraioli</a>), on
-<a href="http://kubernetes.io/">Kubernetes</a>.</p>
-
-<p>The app uses <a href="https://www.twilio.com">Twilio</a> to allow images to be texted to a given number,
-then uses the <a href="https://cloud.google.com/vision/">Cloud Vision API</a> to find labels in the image
-(classify what’s in the image) and return the detected labels as a reply text.
-Because the app is running on Kubernetes, it’s easy to <strong>scale up the app</strong> to support a large number
-of requests.</p>
-
-<p>Once you’ve set up the app on your Google Container Engine (or Kubernetes) cluster, and set up your Twilio number, you can text images to get content labelings:</p>
-
-<p><a href="https://amy-jo.storage.googleapis.com/images/yard.jpg" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/yard.jpg" width="300" /></a></p>
-
-<p>It’s easy to modify your own version of the app to look for additional information in the image.  I’ve in fact modifed my version of the app to look for <em>logos</em> too. It’s fun to see how well it can do with an incomplete view of a logo:</p>
-
-<p><a href="https://amy-jo.storage.googleapis.com/images/cl_bar.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/cl_bar.png" width="300" /></a></p>
-
-<p>After you’ve set up your app, when you’re ready to share it, you can scale up the number of servers running on your Kubernetes cluster so that the app stays responsive.  The example’s <a href="https://github.com/GoogleCloudPlatform/cloud-vision/blob/master/python/twilio/twilio-k8s/README.md">README</a> goes into more detail about how to do all of this.</p>
-
-<p>For a relatively short time, you can try it out here: (785) 336-5113.<br />
-This number won’t work indefinitely, though :).</p>
-
-
-  </article>
-
-</div>
-
-Tags:
-  
-    <a href="/tag/Vision_API">Vision_API</a>&nbsp
-  
-    <a href="/tag/machine_learning">machine_learning</a>&nbsp
-  
 </ul>
+
+<!-- <div id="tag-cloud">
+  Jekyll::Drops::SiteDrop
+</div> -->
 
       </div>
     </div>

@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 28 Oct 2017 14:01:06 -0700</pubDate>
-    <lastBuildDate>Sat, 28 Oct 2017 14:01:06 -0700</lastBuildDate>
+    <pubDate>Sat, 28 Oct 2017 18:31:54 -0700</pubDate>
+    <lastBuildDate>Sat, 28 Oct 2017 18:31:54 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -23,7 +23,7 @@ jobs and many other data processing and analysis tasks.&lt;/p&gt;
 used a &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/&quot;&gt;GAE Flexible&lt;/a&gt;
 &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/an-overview-of-app-engine#services_the_building_blocks_of_app_engine&quot;&gt;service&lt;/a&gt; 
 to periodically launch a Python Dataflow pipeline.  The use of GAE Flex was necessary at the time, because we needed
-to install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk&lt;/a&gt; in the instance container(s) in order to launch the pipelines.&lt;/p&gt;
+to install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;&lt;code&gt;gcloud&lt;/code&gt; sdk&lt;/a&gt; in the instance container(s) in order to launch the pipelines.&lt;/p&gt;
 
 &lt;p&gt;Since then, Cloud Dataflow &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/overview&quot;&gt;templates&lt;/a&gt; have come into the
 picture for the Python SDK. Dataflow templates allow you to stage your pipelines on
@@ -34,13 +34,13 @@ This has a number of benefits:&lt;/p&gt;
   &lt;li&gt;With templates, you don’t have to recompile your code every time you execute a pipeline.&lt;/li&gt;
   &lt;li&gt;This means that you don’t need to launch your pipeline from a development environment or worry about dependencies.&lt;/li&gt;
   &lt;li&gt;It’s much easier for non-technical users to launch pipelines using templates.  You can launch via 
-the &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Google Cloud Platform Console&lt;/a&gt;, the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; command-line interface, or the REST API.&lt;/li&gt;
+the &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Google Cloud Platform Console&lt;/a&gt;, the &lt;code&gt;gcloud&lt;/code&gt; command-line interface, or the REST API.&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;In this post, we’ll show how to use the Dataflow job template
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/reference/rest/#collection-v1b3projectslocationstemplates&quot;&gt;REST API&lt;/a&gt;
 to periodically launch a Dataflow templated job from GAE.  Because we’re now simply calling an
-API, and no longer relying on the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk to launch from App Engine, we can build a simpler &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/&quot;&gt;App Engine
+API, and no longer relying on the &lt;code&gt;gcloud&lt;/code&gt; sdk to launch from App Engine, we can build a simpler &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/&quot;&gt;App Engine
 Standard&lt;/a&gt; app.&lt;/p&gt;
 
 &lt;p&gt;With templates, you can use
@@ -62,7 +62,7 @@ The pipeline does several sorts of analysis on the tweet data; for example, it i
 
 &lt;p&gt;The first step in building our app is creating a Dataflow template. We do this by building a pipeline and then
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/creating-templates#creating-and-staging-templates&quot;&gt;deploying&lt;/a&gt;
-it with the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, which causes the template to be compiled and stored at the given
+it with the &lt;code&gt;--template_location&lt;/code&gt; flag, which causes the template to be compiled and stored at the given
 &lt;a href=&quot;https://cloud.google.com/storage/&quot;&gt;Google Cloud Storage (GCS)&lt;/a&gt; location.&lt;/p&gt;
 
 &lt;p&gt;You can see the pipeline definition &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/dfpipe/pipe.py&quot;&gt;here&lt;/a&gt;.
@@ -82,48 +82,45 @@ goes into a bit more detail about what some of the pipeline steps do, and how th
 
 &lt;p&gt;As part of our new template-ready pipeline definition, we’ll specify that the pipeline takes a
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/creating-templates#modifying-your-code-to-use-runtime-parameters&quot;&gt;runtime argument&lt;/a&gt;, 
-named &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;. This value is used to filter out tweets N days older than the timestamp, so that the pipeline analyzes
+named &lt;code&gt;timestamp&lt;/code&gt;. This value is used to filter out tweets N days older than the timestamp, so that the pipeline analyzes
 only recent activity.&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;UserOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PipelineOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-    &lt;span class=&quot;nd&quot;&gt;@classmethod&lt;/span&gt;
-    &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;_add_argparse_args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;cls&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;parser&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-      &lt;span class=&quot;n&quot;&gt;parser&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;add_value_provider_argument&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'--timestamp'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;class UserOptions(PipelineOptions):
+    @classmethod
+    def _add_argparse_args(cls, parser):
+      parser.add_value_provider_argument('--timestamp', type=str)
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;Then, that argument can be accessed at runtime from a template-generated pipeline, as in this snippet:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;n&quot;&gt;user_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;view_as&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;UserOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;wc_records&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;top_percents&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'format'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;FlatMap&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
-      &lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'word'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'percent'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; 
-                  &lt;span class=&quot;s&quot;&gt;'ts'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user_options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timestamp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;])&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  user_options = pipeline_options.view_as(UserOptions)
+  ...
+  wc_records = top_percents | 'format' &amp;gt;&amp;gt; beam.FlatMap(
+      lambda x: [{'word': xx[0], 'percent': xx[1], 
+                  'ts': user_options.timestamp.get()} for xx in x])
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;The example includes a template creation utility script called &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/create_template.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;create_template.py&lt;/code&gt;&lt;/a&gt;, which
-sets some pipeline options, including the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, defines the pipeline (via &lt;code class=&quot;highlighter-rouge&quot;&gt;pipe.process_datastore_tweets()&lt;/code&gt;), and calls &lt;code class=&quot;highlighter-rouge&quot;&gt;run()&lt;/code&gt; on it. The core of this script is shown below.
-Note that the &lt;code class=&quot;highlighter-rouge&quot;&gt;pipeline_options&lt;/code&gt; dict doesn’t include &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;; we’ll define that
+&lt;p&gt;The example includes a template creation utility script called &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/create_template.py&quot;&gt;&lt;code&gt;create_template.py&lt;/code&gt;&lt;/a&gt;, which
+sets some pipeline options, including the &lt;code&gt;--template_location&lt;/code&gt; flag, defines the pipeline (via &lt;code&gt;pipe.process_datastore_tweets()&lt;/code&gt;), and calls &lt;code&gt;run()&lt;/code&gt; on it. The core of this script is shown below.
+Note that the &lt;code&gt;pipeline_options&lt;/code&gt; dict doesn’t include &lt;code&gt;timestamp&lt;/code&gt;; we’ll define that
 at runtime, not compile time.&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;dfpipe.pipe&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;pipe&lt;/span&gt;
-&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'project'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'staging_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/staging'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'runner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'DataflowRunner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'setup_file'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'./setup.py'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'job_name'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twcount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'temp_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/temp'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;'template_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/templates/'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twproc_tmpl'&lt;/span&gt;
-&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PipelineOptions&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;from_dictionary&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-&lt;span class=&quot;n&quot;&gt;pipe&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;process_datastore_tweets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DATASET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;import dfpipe.pipe as pipe
+...
+pipeline_options = {
+    'project': PROJECT,
+    'staging_location': 'gs://' + BUCKET + '/staging',
+    'runner': 'DataflowRunner',
+    'setup_file': './setup.py',
+    'job_name': PROJECT + '-twcount',
+    'temp_location': 'gs://' + BUCKET + '/temp',
+    'template_location': 'gs://' + BUCKET + '/templates/' + PROJECT + '-twproc_tmpl'
+}
+pipeline_options = PipelineOptions.from_dictionary(pipeline_options)
+pipe.process_datastore_tweets(PROJECT, DATASET, pipeline_options)
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;Because we used the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, a template for that pipeline
+&lt;p&gt;Because we used the &lt;code&gt;--template_location&lt;/code&gt; flag, a template for that pipeline
 is compiled and saved to the indicated GCS location (rather than triggering a run of the pipeline).&lt;/p&gt;
 
 &lt;p&gt;Now that the template is created, we can use it to launch Dataflow pipeline jobs from our GAE app.&lt;/p&gt;
@@ -134,20 +131,20 @@ is compiled and saved to the indicated GCS location (rather than triggering a ru
 in the documentation, the Dataflow Python SDK does not yet support the use of runtime parameters with Datastore input.&lt;/p&gt;
 
 &lt;p&gt;For pipeline analysis, we want to consider only Datastore data from the last N days.
-But, because of the above constraint, we can’t access the runtime &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt; parameter when we’re constructing the
+But, because of the above constraint, we can’t access the runtime &lt;code&gt;timestamp&lt;/code&gt; parameter when we’re constructing the
 Datastore reader query. (If you try, you will see a compile-time error). Similarly, if you try the approach taken by
 the non-template version of the pipeline &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;here&lt;/a&gt;,
-which uses &lt;code class=&quot;highlighter-rouge&quot;&gt;datetime.datetime.now()&lt;/code&gt; to construct its Datastore query, you’ll find that you’re always using the same
+which uses &lt;code&gt;datetime.datetime.now()&lt;/code&gt; to construct its Datastore query, you’ll find that you’re always using the same
 compile-time static timestamp each time you run the template.&lt;/p&gt;
 
 &lt;p&gt;To work around this for the template version of this pipeline, we will include a filter step, that &lt;em&gt;can&lt;/em&gt; access runtime parameters, and which filters out all but the last N days of tweets post-query.
-You can see this step as &lt;code class=&quot;highlighter-rouge&quot;&gt;FilterDate&lt;/code&gt; in the Dataflow pipeline graph figure above.&lt;/p&gt;
+You can see this step as &lt;code&gt;FilterDate&lt;/code&gt; in the Dataflow pipeline graph figure above.&lt;/p&gt;
 
 &lt;h3 id=&quot;launching-a-dataflow-templated-job-from-the-cloud-console&quot;&gt;Launching a Dataflow templated job from the Cloud Console&lt;/h3&gt;
 
 &lt;p&gt;Before we actually deploy the GAE app, let’s check that we can launch a properly running Dataflow templated job
 from our newly generated template. We can do that by launching a job based on that template from &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Cloud
-Console&lt;/a&gt;.  (You could also do this via the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; command-line tool). Note that the
+Console&lt;/a&gt;.  (You could also do this via the &lt;code&gt;gcloud&lt;/code&gt; command-line tool). Note that the
 pipeline won’t do anything interesting unless you already have Tweet data in the Datastore— which would be the case if
 you tried the &lt;a href=&quot;http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html&quot;&gt;earlier example&lt;/a&gt; in this
 series— but you can still confirm that it launches and runs successfully.&lt;/p&gt;
@@ -161,16 +158,16 @@ Template”.&lt;/p&gt;
 &lt;/figure&gt;
 
 &lt;p&gt;Select “Custom Template”, then browse to your new template’s location in GCS. This info was output when you ran
-&lt;code class=&quot;highlighter-rouge&quot;&gt;create_template.py&lt;/code&gt;. (The pulldown menu also includes some predefined templates that you may want to explore later).&lt;/p&gt;
+&lt;code&gt;create_template.py&lt;/code&gt;. (The pulldown menu also includes some predefined templates that you may want to explore later).&lt;/p&gt;
 
 &lt;figure&gt;
     &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/job_templates2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/job_templates2.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
     &lt;figcaption&gt;&lt;i&gt;Select &quot;Custom Template&quot;, and specify the path to the template file.&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
-&lt;p&gt;Finally, set your pipeline’s defined runtime parameter(s). In this case, we have one: &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;. The pipeline is
+&lt;p&gt;Finally, set your pipeline’s defined runtime parameter(s). In this case, we have one: &lt;code&gt;timestamp&lt;/code&gt;. The pipeline is
 expecting a value in a format like this:&lt;br /&gt;
-&lt;code class=&quot;highlighter-rouge&quot;&gt;2017-10-22 10:18:13.491543&lt;/code&gt; (you can generate such a string in the Python interpreter via &lt;code class=&quot;highlighter-rouge&quot;&gt;str(datetime.datetime.now())&lt;/code&gt;).&lt;/p&gt;
+&lt;code&gt;2017-10-22 10:18:13.491543&lt;/code&gt; (you can generate such a string in the Python interpreter via &lt;code&gt;str(datetime.datetime.now())&lt;/code&gt;).&lt;/p&gt;
 
 &lt;figure&gt;
     &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/job_templates3.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/job_templates3.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
@@ -192,55 +189,53 @@ run that handler periodically via a GAE cron.
 We’ll use another handler of the same app to periodically fetch tweets and store them in the Datastore.&lt;/p&gt;
 
 &lt;p&gt;You can see the GAE app script &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/main.py&quot;&gt;here&lt;/a&gt;.&lt;br /&gt;
-The &lt;code class=&quot;highlighter-rouge&quot;&gt;FetchTweets&lt;/code&gt; handler fetches tweets and stores them in the Datastore.
+The &lt;code&gt;FetchTweets&lt;/code&gt; handler fetches tweets and stores them in the Datastore.
 See the &lt;a href=&quot;http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html&quot;&gt;previous post&lt;/a&gt; in this series for a bit more info on that.  However, this part of the app is just
 for example purposes; in your own apps, you probably already have some other means of collecting and storing data in Datastore.&lt;/p&gt;
 
-&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;LaunchJob&lt;/code&gt; handler is the new piece of the puzzle: using the Dataflow REST API, it sets the &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt; runtime parameter, and launches a Dataflow job using the template.&lt;/p&gt;
+&lt;p&gt;The &lt;code&gt;LaunchJob&lt;/code&gt; handler is the new piece of the puzzle: using the Dataflow REST API, it sets the &lt;code&gt;timestamp&lt;/code&gt; runtime parameter, and launches a Dataflow job using the template.&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;googleapiclient.discovery&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;
-&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;oauth2client.client&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;
-&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_application_default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;service&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'dataflow'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'v1b3'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from googleapiclient.discovery import build
+from oauth2client.client import GoogleCredentials
+...
+    credentials = GoogleCredentials.get_application_default()
+    service = build('dataflow', 'v1b3', credentials=credentials)
 
-    &lt;span class=&quot;n&quot;&gt;BODY&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;&quot;jobName&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;{jobname}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;jobname&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;JOBNAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;&quot;gcsPath&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;gs://{bucket}/templates/{template}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
-                &lt;span class=&quot;n&quot;&gt;bucket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;template&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TEMPLATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;&quot;parameters&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;timestamp&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;utcnow&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())},&lt;/span&gt;
-             &lt;span class=&quot;s&quot;&gt;&quot;environment&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-                &lt;span class=&quot;s&quot;&gt;&quot;tempLocation&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;gs://{bucket}/temp&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bucket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
-                &lt;span class=&quot;s&quot;&gt;&quot;zone&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;us-central1-f&quot;&lt;/span&gt;
-             &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
-        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+    BODY = {
+            &quot;jobName&quot;: &quot;{jobname}&quot;.format(jobname=JOBNAME),
+            &quot;gcsPath&quot;: &quot;gs://{bucket}/templates/{template}&quot;.format(
+                bucket=BUCKET, template=TEMPLATE),
+            &quot;parameters&quot;: {&quot;timestamp&quot;: str(datetime.datetime.utcnow())},
+             &quot;environment&quot;: {
+                &quot;tempLocation&quot;: &quot;gs://{bucket}/temp&quot;.format(bucket=BUCKET),
+                &quot;zone&quot;: &quot;us-central1-f&quot;
+             }
+        }
 
-    &lt;span class=&quot;n&quot;&gt;dfrequest&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;service&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;projects&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;templates&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;create&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
-        &lt;span class=&quot;n&quot;&gt;projectId&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BODY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;dfresponse&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dfrequest&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dfresponse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-    &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;response&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Done'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    dfrequest = service.projects().templates().create(
+        projectId=PROJECT, body=BODY)
+    dfresponse = dfrequest.execute()
+    logging.info(dfresponse)
+    self.response.write('Done')
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;h2 id=&quot;launching-the-dataflow-pipeline-periodically-using-a-gae-cron&quot;&gt;Launching the Dataflow pipeline periodically using a GAE cron&lt;/h2&gt;
 
 &lt;p&gt;For our GAE app, we want to launch a Dataflow templated job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis. 
 So, it makes sense to set things using a &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron.yaml&lt;/a&gt; file like this:&lt;/p&gt;
 
-&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;cron&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;fetch tweets&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/timeline&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 17 minutes&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default&lt;/span&gt;
-&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;launch dataflow pipeline&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/launchtemplatejob&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 5 hours&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-yaml&quot;&gt;cron:
+- description: fetch tweets
+  url: /timeline
+  schedule: every 17 minutes
+  target: default
+- description: launch dataflow pipeline
+  url: /launchtemplatejob
+  schedule: every 5 hours
+  target: default
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;A GAE app makes it easy to run such a cron, but note that now that we’re using templates, it becomes easier to to support this functionality in other ways too.  E.g., it would also be straightforward to use the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; CLI to launch the template job, and set up a local cron job.&lt;/p&gt;
+&lt;p&gt;A GAE app makes it easy to run such a cron, but note that now that we’re using templates, it becomes easier to to support this functionality in other ways too.  E.g., it would also be straightforward to use the &lt;code&gt;gcloud&lt;/code&gt; CLI to launch the template job, and set up a local cron job.&lt;/p&gt;
 
 &lt;h2 id=&quot;a-look-at-the-example-results-in-bigquery&quot;&gt;A look at the example results in BigQuery&lt;/h2&gt;
 
@@ -252,7 +247,7 @@ workflow – or to write to multiple sources).&lt;/p&gt;
 For example, we can find recent word co-occurrences that are ‘interesting’ by our metric:&lt;/p&gt;
 
 &lt;figure&gt;
-  &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/bq_logweightsb.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/bq_logweightsb.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+  &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/xScreenshot_2017-10-28_14_28_35%20copy%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/xScreenshot_2017-10-28_14_28_35%20copy%202.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
   &lt;figcaption&gt;&lt;i&gt;&quot;Interesting&quot; word co-occurrences&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
@@ -260,7 +255,7 @@ For example, we can find recent word co-occurrences that are ‘interesting’ b
 2017 results):&lt;/p&gt;
 
 &lt;figure&gt;
-  &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/temp_queries.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/temp_queries.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+  &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/temp_queries.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/temp_queries.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
   &lt;figcaption&gt;&lt;i&gt;Emergent (new) interesting word co-occurrences can reflect current news&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
@@ -268,15 +263,15 @@ For example, we can find recent word co-occurrences that are ‘interesting’ b
 can see that most of these words are common, but not particularly newsworthy):&lt;/p&gt;
 
 &lt;figure&gt;
-  &lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
+  &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/pScreenshot_2017-10-28_14_27_05%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/gae_dataflow/pScreenshot_2017-10-28_14_27_05%202.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
   &lt;figcaption&gt;&lt;i&gt;Popular, but not necessarily interesting words&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
-&lt;p&gt;Or, find the most often-tweeted URLs from the past few weeks (some URLs are truncated in the output):&lt;/p&gt;
+&lt;p&gt;Or, find the most frequently tweeted URLs from the past few weeks (some URLs are truncated in the output):&lt;/p&gt;
 
 &lt;figure&gt;
   &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/bq_popurls2b.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/bq_popurls2b.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
-  &lt;figcaption&gt;&lt;i&gt;The most-often tweeted URLs from the past few weeks (filtering out some of the shortlinks)&lt;/i&gt;&lt;/figcaption&gt;
+  &lt;figcaption&gt;&lt;i&gt;The most frequently tweeted URLs from the past few weeks (filtering out some of the shortlinks)&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
 &lt;h2 id=&quot;summary-and-whats-next&quot;&gt;Summary… and what’s next?&lt;/h2&gt;
@@ -341,33 +336,32 @@ includes a &lt;a href=&quot;https://github.com/apache/beam/blob/master/sdks/pyth
 
 &lt;h2 id=&quot;building-a-service-to-define-and-launch-a-dataflow-pipeline-from-app-engine&quot;&gt;Building a service to define and launch a Dataflow pipeline from App Engine&lt;/h2&gt;
 
-&lt;p&gt;We’ll use a Flex custom runtime based on the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcr.io/google_appengine/python&lt;/code&gt; image for the service that launches the dataflow pipeline, as we’ll install the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk in the instance container(s).  So, the example includes a &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;&lt;/a&gt; used to deploy the service.  As the last command in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;, we’ll start up a Gunicorn server to serve a Flask app script (&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;We’ll use a Flex custom runtime based on the &lt;code&gt;gcr.io/google_appengine/python&lt;/code&gt; image for the service that launches the dataflow pipeline, as we’ll install the &lt;code&gt;gcloud&lt;/code&gt; sdk in the instance container(s).  So, the example includes a &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile&quot;&gt;&lt;code&gt;Dockerfile&lt;/code&gt;&lt;/a&gt; used to deploy the service.  As the last command in the &lt;code&gt;Dockerfile&lt;/code&gt;, we’ll start up a Gunicorn server to serve a Flask app script (&lt;code&gt;main_df.py&lt;/code&gt;).&lt;/p&gt;
 
-&lt;p&gt;The Python code for this service consists of the small Flask app script (&lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;&lt;/a&gt;), which accesses a module (&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt;) that does most of the heavy lifting in terms of defining and launching the example pipeline (in &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;The Python code for this service consists of the small Flask app script (&lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py&quot;&gt;&lt;code&gt;main_df.py&lt;/code&gt;&lt;/a&gt;), which accesses a module (&lt;code&gt;dfpipe&lt;/code&gt;) that does most of the heavy lifting in terms of defining and launching the example pipeline (in &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;).&lt;/p&gt;
 
 &lt;h3 id=&quot;setting-the-pipeline-options&quot;&gt;Setting the pipeline options&lt;/h3&gt;
 
 &lt;p&gt;As part of the process of launching a Dataflow pipeline, various options may be set.
-In order to make the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module available to the Dataflow &lt;em&gt;workers&lt;/em&gt;, the pipeline options include a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup_file&lt;/code&gt; flag.&lt;/p&gt;
+In order to make the &lt;code&gt;dfpipe&lt;/code&gt; module available to the Dataflow &lt;em&gt;workers&lt;/em&gt;, the pipeline options include a &lt;code&gt;setup_file&lt;/code&gt; flag.&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'project'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'staging_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/staging'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'runner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'DataflowRunner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'setup_file'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'./setup.py'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'job_name'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twcount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'max_num_workers'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'temp_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/temp'&lt;/span&gt;
-  &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  pipeline_options = {
+      'project': PROJECT,
+      'staging_location': 'gs://' + BUCKET + '/staging',
+      'runner': 'DataflowRunner',
+      'setup_file': './setup.py',
+      'job_name': PROJECT + '-twcount',
+      'max_num_workers': 10,
+      'temp_location': 'gs://' + BUCKET + '/temp'
+  }
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;This points to a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup.py&lt;/code&gt; file which specifies to package the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module using &lt;code class=&quot;highlighter-rouge&quot;&gt;setuptools&lt;/code&gt;. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
+&lt;p&gt;This points to a &lt;code&gt;setup.py&lt;/code&gt; file which specifies to package the &lt;code&gt;dfpipe&lt;/code&gt; module using &lt;code&gt;setuptools&lt;/code&gt;. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
 The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.&lt;/p&gt;
 
 &lt;h2 id=&quot;a-look-at-the-dataflow-pipeline&quot;&gt;A look at the Dataflow pipeline&lt;/h2&gt;
 
-&lt;p&gt;Now let’s take a quick look at &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, to see what the Python Dataflow pipeline does.&lt;/p&gt;
+&lt;p&gt;Now let’s take a quick look at &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, to see what the Python Dataflow pipeline does.&lt;/p&gt;
 
 &lt;p&gt;It reads recent tweets from the past N days from Cloud Datastore, then
 essentially splits into three processing branches. It finds the top N most popular words in terms of
@@ -381,91 +375,85 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
 
 &lt;p&gt;This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.&lt;/p&gt;
 
-&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main.py&lt;/code&gt;&lt;/a&gt;, the app script for the GAE standard service, you can see the Tweet entity schema:&lt;/p&gt;
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py&quot;&gt;&lt;code&gt;main.py&lt;/code&gt;&lt;/a&gt;, the app script for the GAE standard service, you can see the Tweet entity schema:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.appengine.ext&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Tweet&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Model&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;text&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;created_at&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DateTimeProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;tid&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IntegerProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;urls&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;repeated&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from google.appengine.ext import ndb
+class Tweet(ndb.Model):
+  user = ndb.StringProperty()
+  text = ndb.StringProperty()
+  created_at = ndb.DateTimeProperty()
+  tid = ndb.IntegerProperty()
+  urls = ndb.StringProperty(repeated=True)
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, we can use the &lt;a href=&quot;https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;google.cloud.proto.datastore&lt;/code&gt;&lt;/a&gt; API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the &lt;code class=&quot;highlighter-rouge&quot;&gt;created_at&lt;/code&gt; field.&lt;/p&gt;
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, we can use the &lt;a href=&quot;https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1&quot;&gt;&lt;code&gt;google.cloud.proto.datastore&lt;/code&gt;&lt;/a&gt; API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the &lt;code&gt;created_at&lt;/code&gt; field.&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.cloud.proto.datastore.v1&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;
-&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Creates a Cloud Datastore query to retrieve all Tweet entities with a
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from google.cloud.proto.datastore.v1 import query_pb2
+def make_query(kind):
+  &quot;&quot;&quot;Creates a Cloud Datastore query to retrieve all Tweet entities with a
   'created_at' date &amp;gt; N days ago.
-  &quot;&quot;&quot;&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;days&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;now&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timedelta&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &quot;&quot;&quot;
+  days = 4
+  now = datetime.datetime.now()
+  earlier = now - datetime.timedelta(days=days)
 
-  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;add&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;datastore_helper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_property_filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'created_at'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-                                       &lt;span class=&quot;n&quot;&gt;PropertyFilter&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GREATER_THAN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
-                                       &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;
+  query = query_pb2.Query()
+  query.kind.add().name = kind
+  datastore_helper.set_property_filter(query.filter, 'created_at',
+                                       PropertyFilter.GREATER_THAN,
+                                       earlier)
+  return query
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;Then, we use that query to define an input source for the pipeline:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; &lt;span class=&quot;n&quot;&gt;p&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Pipeline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;c&quot;&gt;# Create a query to read entities from datastore.&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Tweet'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt; p = beam.Pipeline(options=pipeline_options)
+  # Create a query to read entities from datastore.
+  query = make_query('Tweet')
 
-  &lt;span class=&quot;c&quot;&gt;# Read entities from Cloud Datastore into a PCollection.&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;
-      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'read from datastore'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ReadFromDatastore&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt; 
+  # Read entities from Cloud Datastore into a PCollection.
+  lines = (p
+      | 'read from datastore' &amp;gt;&amp;gt; ReadFromDatastore(project, query, None))
+  ... 
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;We can use &lt;code class=&quot;highlighter-rouge&quot;&gt;properties.get()&lt;/code&gt; on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:&lt;/p&gt;
+&lt;p&gt;We can use &lt;code&gt;properties.get()&lt;/code&gt; on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Parse each tweet text into words, removing some 'stopwords'.&quot;&quot;&quot;&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;class WordExtractingDoFn(beam.DoFn):
+  &quot;&quot;&quot;Parse each tweet text into words, removing some 'stopwords'.&quot;&quot;&quot;
 
-  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;process&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;properties&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'text'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;
-    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string_value&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lower&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;re&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;findall&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;r'[A-Za-z&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\'&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;]+'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)])&lt;/span&gt;
-    &lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
-    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+  def process(self, element):
+    content_value = element.properties.get('text', None)
+    text_line = ''
+    if content_value:
+      text_line = content_value.string_value
+    words = set([x.lower() for x in re.findall(r'[A-Za-z\']+', text_line)])
+    stopwords = [...]
+    return list(words - set(stopwords))
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;Then, this snippet from the pipeline shows how  &lt;code class=&quot;highlighter-rouge&quot;&gt;WordExtractingDoFn&lt;/code&gt; can be used as part of the Datastore input processing:&lt;/p&gt;
+&lt;p&gt;Then, this snippet from the pipeline shows how  &lt;code&gt;WordExtractingDoFn&lt;/code&gt; can be used as part of the Datastore input processing:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;c&quot;&gt;# Count the occurrences of each word.&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;percents&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt;
-      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'split'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ParDo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
-                    &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;with_output_types&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;unicode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'pair_with_one'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
-      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'group'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GroupByKey&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'count'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)))&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  # Count the occurrences of each word.
+  percents = (lines
+      | 'split' &amp;gt;&amp;gt; (beam.ParDo(WordExtractingDoFn())
+                    .with_output_types(unicode))
+      | 'pair_with_one' &amp;gt;&amp;gt; beam.Map(lambda x: (x, 1))
+      | 'group' &amp;gt;&amp;gt; beam.GroupByKey()
+      | 'count' &amp;gt;&amp;gt; beam.Map(lambda (word, ones): (word, sum(ones)))
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;h2 id=&quot;launching-the-dataflow-pipeline-periodically-using-a-cron-job&quot;&gt;Launching the Dataflow pipeline periodically using a cron job&lt;/h2&gt;
 
 &lt;p&gt;In the example app, we want to launch a pipeline job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis.
-So, it makes sense to just set things up as an app &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron&lt;/a&gt; job, which looks like this (&lt;code class=&quot;highlighter-rouge&quot;&gt;backend&lt;/code&gt; is the name of the app service that handles this request, and the &lt;code class=&quot;highlighter-rouge&quot;&gt;url&lt;/code&gt; is the handler that launches the job):&lt;/p&gt;
+So, it makes sense to just set things up as an app &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron&lt;/a&gt; job, which looks like this (&lt;code&gt;backend&lt;/code&gt; is the name of the app service that handles this request, and the &lt;code&gt;url&lt;/code&gt; is the handler that launches the job):&lt;/p&gt;
 
-&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;cron&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;launch dataflow pipeline&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/launchpipeline&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 5 hours&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;backend&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-yaml&quot;&gt;cron:
+- description: launch dataflow pipeline
+  url: /launchpipeline
+  schedule: every 5 hours
+  target: backend
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;A pipeline job could of course be triggered by other means as well– e.g. as part of handling a client request to the app, or perhaps via a &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/&quot;&gt;Task Queue task&lt;/a&gt;.&lt;/p&gt;
 
@@ -600,18 +588,16 @@ to do this preprocessing – that is, the Beam pipeline uses the Inception v3 mo
 
 &lt;p&gt;Once you’ve done that, you can deploy a trained model to Cloud ML like this.  First, “create the model” in Cloud ML – this does not define the actual model, but creates a name to associate with the model once you upload it. For example:&lt;/p&gt;
 
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml models create hugs
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta ml models create hugs
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;Then, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/model.sh&quot;&gt;deploy a &lt;em&gt;version&lt;/em&gt; of that model&lt;/a&gt; by pointing Cloud ML to the checkpointed model info that was saved as the final result of your training session.
 The command to do that will look something like this:&lt;/p&gt;
 
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml versions create v1 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --model hugs &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta ml versions create v1 \
+  --model hugs \
   --origin gs://your-gcs-bucket/path/to/model
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;It will take a few minutes to create the model version. Once that’s done, you can start to access it for prediction in your apps.  Each time you deploy a new version of your model, you will use a new version name.  If you have more than one version of a model, you can set one as the default.&lt;/p&gt;
 
@@ -634,28 +620,27 @@ call&lt;sup&gt;&lt;a href=&quot;#footnote1&quot;&gt;1&lt;/a&gt;&lt;/sup&gt; and 
 
 &lt;p&gt;Here is a Python code snippet showing a prediction API call:&lt;/p&gt;
 
-&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;googleapiclient&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;
-&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;oauth2client.client&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from googleapiclient import discovery
+from oauth2client.client import GoogleCredentials
 
-&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;create_client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+def create_client():
 
-  &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_application_default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
-      &lt;span class=&quot;s&quot;&gt;'ml'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'v1beta1'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;
+  credentials = GoogleCredentials.get_application_default()
+  ml_service = discovery.build(
+      'ml', 'v1beta1', credentials=credentials)
+  return ml_service
 
 
-&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;get_prediction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_request_json&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'instances'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]}&lt;/span&gt;
+def get_prediction(ml_service, project, model_name, input_image):
+  request_dict = make_request_json(input_image)
+  body = {'instances': [request_dict]}
 
-  &lt;span class=&quot;c&quot;&gt;# This request will use the default model version.&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'projects/{}/models/{}'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;projects&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;predict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
-  &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
-  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt;
+  # This request will use the default model version.
+  parent = 'projects/{}/models/{}'.format(project, model_name)
+  request = ml_service.projects().predict(name=parent, body=body)
+  result = request.execute()
+  return result
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;You can see more detail on how the uploaded image was formatted for the API request, and how the response was 
 parsed, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/web_server/predict_server.py&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
@@ -672,21 +657,20 @@ parsed, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/ma
 
 &lt;p&gt;It turns out that if you ask the “flowers” model what kind of flower a hedgehog is, it will classify it pretty confidently as looking most like a dandelion. This seems pretty astute of the flowers model!&lt;/p&gt;
 
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;python images_to_json.py hedgehog.jpg
-&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gcloud beta ml predict --model flowers --json-instances request.json
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;$ python images_to_json.py hedgehog.jpg
+$ gcloud beta ml predict --model flowers --json-instances request.json
 KEY                             PREDICTION  SCORES
-prediction_images/hedgehog.jpg  1           &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
-&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
+prediction_images/hedgehog.jpg  1           [0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
+$ gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
 daisy
 dandelion
 roses
 sunflowers
 tulips
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;(We can see this is so because &lt;code class=&quot;highlighter-rouge&quot;&gt;dandelion&lt;/code&gt; is in the ‘1’ index position in the 
-flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/code&gt;, corresponding to the prediction of ‘1’.)&lt;/p&gt;
+&lt;p&gt;(We can see this is so because &lt;code&gt;dandelion&lt;/code&gt; is in the ‘1’ index position in the 
+flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the prediction of ‘1’.)&lt;/p&gt;
 
 &lt;h2 id=&quot;what-next&quot;&gt;What Next?&lt;/h2&gt;
 
@@ -697,7 +681,7 @@ flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/
 &lt;hr /&gt;
 
 &lt;p&gt;&lt;small&gt;
-&lt;span id=&quot;footnote1&quot;&gt;1&lt;/span&gt;: While the prediction service is in alpha, you may sometimes see a &lt;code class=&quot;highlighter-rouge&quot;&gt;502&lt;/code&gt; error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.&lt;/small&gt;&lt;/p&gt;
+&lt;span id=&quot;footnote1&quot;&gt;1&lt;/span&gt;: While the prediction service is in alpha, you may sometimes see a &lt;code&gt;502&lt;/code&gt; error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.&lt;/small&gt;&lt;/p&gt;
 
 &lt;p&gt;&lt;small&gt;
 &lt;span id=&quot;footnote2&quot;&gt;2&lt;/span&gt;: It’s possible that this amuses only me.&lt;/small&gt;&lt;/p&gt;
@@ -795,12 +779,11 @@ For the most part, the NL slackbot  will keep pretty quiet. Each time there is a
 
 &lt;p&gt;(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold, by looking for where it is set &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/demo_bot.js&quot;&gt;here&lt;/a&gt;).&lt;/p&gt;
 
-&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code class=&quot;highlighter-rouge&quot;&gt;top entities&lt;/code&gt;.
-For example, if your bot is called &lt;code class=&quot;highlighter-rouge&quot;&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
+&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code&gt;top entities&lt;/code&gt;.
+For example, if your bot is called &lt;code&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;@nlpbot top entities
+&lt;pre&gt;&lt;code&gt;@nlpbot top entities
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;Then, the result might look something like the following. (At least, if you have seeded your test channel with a combination of political news and Kubernetes posts :).&lt;/p&gt;
 
@@ -990,7 +973,7 @@ We’ve also provided a &lt;a href=&quot;https://cloud.google.com/appengine/docs
 The &lt;strong&gt;ImageMagick&lt;/strong&gt; extension is now supported for PHP 5.5 apps as well.&lt;/p&gt;
 
 &lt;p&gt;We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
-In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;tmpfile()&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
+In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code&gt;tmpfile()&lt;/code&gt; and &lt;code&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
 
 &lt;p&gt;The PHP 5.5. runtime also gives you the ability to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/&quot;&gt;&lt;strong&gt;upload files directly to your application&lt;/strong&gt;&lt;/a&gt;, without the need to upload the files to &lt;a href=&quot;https://cloud.google.com/storage/docs&quot;&gt;Google Cloud Storage&lt;/a&gt; first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.&lt;/p&gt;
 
@@ -1030,19 +1013,17 @@ In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code class=&qu
 
 &lt;p&gt;Then, set the gcloud default project name to point to the project you want to use for your Kubernetes cluster:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud config set project &amp;lt;project-name&amp;gt;
+&lt;pre&gt;&lt;code&gt;gcloud config set project &amp;lt;project-name&amp;gt;
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;Next, grab the Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/releases&quot;&gt;release binary&lt;/a&gt;.  (This example was tested with release 0.8.1).&lt;/p&gt;
 
 &lt;p&gt;Then, start up a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt; &lt;a href=&quot;...&quot;&gt;cluster&lt;/a&gt; as &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/getting-started-guides/gce.md&quot;&gt;described here&lt;/a&gt;.&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
+&lt;pre&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;where &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
+&lt;p&gt;where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
 
 &lt;h2 id=&quot;create-and-format-two-persistent-disks&quot;&gt;Create and format two persistent disks&lt;/h2&gt;
 
@@ -1054,18 +1035,18 @@ The general series of steps required is as described &lt;a href=&quot;https://gi
 &lt;p&gt;So for the two disks used in this example, do the following.
 First create and format the mysql disk, setting the disk size to meet your needs:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
 gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;mysql-disk --device-name temp-data kubernetes-master
 gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;&lt;/span&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
 gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk mysql-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then create and format the wordpress disk.  Note that you may not want as large a disk size for the wordpress code as for the mysql disk.&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
 gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$wordpress&lt;/span&gt;-disk --device-name temp-data kubernetes-master
 gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&quot;&lt;/span&gt;
+  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
 gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk wordpress-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h2 id=&quot;start-the-mysql-pod-and-service&quot;&gt;Start the Mysql Pod and Service&lt;/h2&gt;
@@ -1074,136 +1055,136 @@ gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;
 
 &lt;h3 id=&quot;start-the-mysql-pod&quot;&gt;Start the Mysql pod&lt;/h3&gt;
 
-&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
+&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
            &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;yourpassword&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;100&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;100&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/var/lib/mysql&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;s&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;/var/lib/mysql&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql-disk&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-disk&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;Note that we’ve defined a volume mount for &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code class=&quot;highlighter-rouge&quot;&gt;mysql-disk&lt;/code&gt;) that you created.
-Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code class=&quot;highlighter-rouge&quot;&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
+&lt;p&gt;Note that we’ve defined a volume mount for &lt;code&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code&gt;mysql-disk&lt;/code&gt;) that you created.
+Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;It may take a short period before the new pod reaches the &lt;code class=&quot;highlighter-rouge&quot;&gt;Running&lt;/code&gt; state.
+&lt;p&gt;It may take a short period before the new pod reaches the &lt;code&gt;Running&lt;/code&gt; state.
 List all pods to see the status of this new pod and the cluster node that it is running on:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h4 id=&quot;check-the-running-pod-on-the-compute-instance&quot;&gt;Check the running pod on the Compute instance&lt;/h4&gt;
 
-&lt;p&gt;You can take a look at the logs for a pod by using &lt;code class=&quot;highlighter-rouge&quot;&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
+&lt;p&gt;You can take a look at the logs for a pod by using &lt;code&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code class=&quot;highlighter-rouge&quot;&gt;sudo -s&lt;/code&gt;, then &lt;code class=&quot;highlighter-rouge&quot;&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code class=&quot;highlighter-rouge&quot;&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code class=&quot;highlighter-rouge&quot;&gt;/var/log&lt;/code&gt;, e.g. &lt;code class=&quot;highlighter-rouge&quot;&gt;docker.log&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code&gt;sudo -s&lt;/code&gt;, then &lt;code&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code&gt;/var/log&lt;/code&gt;, e.g. &lt;code&gt;docker.log&lt;/code&gt; and &lt;code&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
 
 &lt;h3 id=&quot;start-the-myql-service&quot;&gt;Start the Myql service&lt;/h3&gt;
 
 &lt;p&gt;We’ll define and start a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; that lets other pods access the mysql database on a known port and host.
-We will specifically name the service &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
+We will specifically name the service &lt;code&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
 
-&lt;p&gt;So if we label our Kubernetes mysql service &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
+&lt;p&gt;So if we label our Kubernetes mysql service &lt;code&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
 
 &lt;p&gt;Copy the &lt;a href=&quot;https://gist.github.com/amygdala/9f88e2ea9c37d26a8a68&quot;&gt;mysql-service.yaml&lt;/a&gt; file, which looks like this:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. 'www') or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3306&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then, start the service like this:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;You can see what services are running via:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h2 id=&quot;start-wordpress-pod-and-service&quot;&gt;Start WordPress Pod and Service&lt;/h2&gt;
 
 &lt;p&gt;Once the mysql service is up, start the wordpress pod.&lt;/p&gt;
 
-&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code class=&quot;highlighter-rouge&quot;&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code class=&quot;highlighter-rouge&quot;&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
+&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontendController&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;80&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontendController&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/var/www/html&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;/var/www/html&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;yourpassword&lt;/span&gt;
-    &lt;span class=&quot;s&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;s&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
+    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
+        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
           &lt;span class=&quot;c1&quot;&gt;# emptyDir: {}&lt;/span&gt;
-          &lt;span class=&quot;s&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+          &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
             &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;wordpress-disk&lt;/span&gt;
-            &lt;span class=&quot;s&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-disk&lt;/span&gt;
+            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Create the pod:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code class=&quot;highlighter-rouge&quot;&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
+&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;h3 id=&quot;start-the-wordpress-service&quot;&gt;Start the WordPress service&lt;/h3&gt;
 
@@ -1212,60 +1193,57 @@ We will specifically name the service &lt;code class=&quot;highlighter-rouge&quo
 
 &lt;p&gt;The service config file looks like this:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;3000&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3000&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
 &lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. 'www') or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;80&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;s&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
+&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;Note the &lt;code class=&quot;highlighter-rouge&quot;&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
-&lt;code class=&quot;highlighter-rouge&quot;&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
+&lt;p&gt;Note the &lt;code&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
+&lt;code&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
 
 &lt;p&gt;Note also that we’ve set the service port to 3000.  We’ll return to that shortly.&lt;/p&gt;
 
 &lt;p&gt;Start the service:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;and see it in the list of services:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
 &lt;p&gt;Then, find the external IP for your WordPress service by listing the forwarding rules for your project:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ gcloud compute forwarding-rules list
+&lt;pre&gt;&lt;code&gt;$ gcloud compute forwarding-rules list
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;Look for the rule called &lt;code class=&quot;highlighter-rouge&quot;&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
+&lt;p&gt;Look for the rule called &lt;code&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
 
 &lt;h2 id=&quot;visit-your-new-wordpress-blog&quot;&gt;Visit your new WordPress blog&lt;/h2&gt;
 
 &lt;p&gt;To access your new installation, you’ll first need to open up port 3000 (the port specified in the wordpress service config) in the firewall. Do this via:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ gcloud compute firewall-rules create wordpress --allow tcp:3000
+&lt;pre&gt;&lt;code&gt;$ gcloud compute firewall-rules create wordpress --allow tcp:3000
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
-&lt;p&gt;This will define a firewall rule called &lt;code class=&quot;highlighter-rouge&quot;&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
+&lt;p&gt;This will define a firewall rule called &lt;code&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
 
 &lt;p&gt;Now, we can visit the running WordPress app.
 Use the external IP that you obtained above, and visit it on port 3000:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;http://&amp;lt;external_ip&amp;gt;:3000
+&lt;pre&gt;&lt;code&gt;http://&amp;lt;external_ip&amp;gt;:3000
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 &lt;p&gt;You should see the familiar WordPress init page.&lt;/p&gt;
 
@@ -1275,18 +1253,17 @@ Use the external IP that you obtained above, and visit it on port 3000:&lt;/p&gt
 
 &lt;p&gt;If you are just experimenting, you can take down and bring up only the pods:&lt;/p&gt;
 
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
-&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;&amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
+&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
+$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
 
-&lt;p&gt;When you restart the pods again (using the &lt;code class=&quot;highlighter-rouge&quot;&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
+&lt;p&gt;When you restart the pods again (using the &lt;code&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
 
 &lt;p&gt;If you want to shut down the entire app installation, you can delete the services as well.&lt;/p&gt;
 
 &lt;p&gt;If you are ready to turn down your Kubernetes cluster altogether, run:&lt;/p&gt;
 
-&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
+&lt;pre&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
 &lt;/code&gt;&lt;/pre&gt;
-&lt;/div&gt;
 
 </description>
         <pubDate>Tue, 13 Jan 2015 00:00:00 -0800</pubDate>

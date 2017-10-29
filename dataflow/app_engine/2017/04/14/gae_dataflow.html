@@ -44,6 +44,38 @@
         
           
         
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
       </div>
     </nav>
 
@@ -93,33 +125,32 @@ includes a <a href="https://github.com/apache/beam/blob/master/sdks/python/apach
 
 <h2 id="building-a-service-to-define-and-launch-a-dataflow-pipeline-from-app-engine">Building a service to define and launch a Dataflow pipeline from App Engine</h2>
 
-<p>We’ll use a Flex custom runtime based on the <code class="highlighter-rouge">gcr.io/google_appengine/python</code> image for the service that launches the dataflow pipeline, as we’ll install the <code class="highlighter-rouge">gcloud</code> sdk in the instance container(s).  So, the example includes a <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile"><code class="highlighter-rouge">Dockerfile</code></a> used to deploy the service.  As the last command in the <code class="highlighter-rouge">Dockerfile</code>, we’ll start up a Gunicorn server to serve a Flask app script (<code class="highlighter-rouge">main_df.py</code>).</p>
+<p>We’ll use a Flex custom runtime based on the <code>gcr.io/google_appengine/python</code> image for the service that launches the dataflow pipeline, as we’ll install the <code>gcloud</code> sdk in the instance container(s).  So, the example includes a <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile"><code>Dockerfile</code></a> used to deploy the service.  As the last command in the <code>Dockerfile</code>, we’ll start up a Gunicorn server to serve a Flask app script (<code>main_df.py</code>).</p>
 
-<p>The Python code for this service consists of the small Flask app script (<a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py"><code class="highlighter-rouge">main_df.py</code></a>), which accesses a module (<code class="highlighter-rouge">dfpipe</code>) that does most of the heavy lifting in terms of defining and launching the example pipeline (in <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>).</p>
+<p>The Python code for this service consists of the small Flask app script (<a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py"><code>main_df.py</code></a>), which accesses a module (<code>dfpipe</code>) that does most of the heavy lifting in terms of defining and launching the example pipeline (in <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code>dfpipe/pipe.py</code></a>).</p>
 
 <h3 id="setting-the-pipeline-options">Setting the pipeline options</h3>
 
 <p>As part of the process of launching a Dataflow pipeline, various options may be set.
-In order to make the <code class="highlighter-rouge">dfpipe</code> module available to the Dataflow <em>workers</em>, the pipeline options include a <code class="highlighter-rouge">setup_file</code> flag.</p>
+In order to make the <code>dfpipe</code> module available to the Dataflow <em>workers</em>, the pipeline options include a <code>setup_file</code> flag.</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code>  <span class="n">pipeline_options</span> <span class="o">=</span> <span class="p">{</span>
-      <span class="s">'project'</span><span class="p">:</span> <span class="n">PROJECT</span><span class="p">,</span>
-      <span class="s">'staging_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/staging'</span><span class="p">,</span>
-      <span class="s">'runner'</span><span class="p">:</span> <span class="s">'DataflowRunner'</span><span class="p">,</span>
-      <span class="s">'setup_file'</span><span class="p">:</span> <span class="s">'./setup.py'</span><span class="p">,</span>
-      <span class="s">'job_name'</span><span class="p">:</span> <span class="n">PROJECT</span> <span class="o">+</span> <span class="s">'-twcount'</span><span class="p">,</span>
-      <span class="s">'max_num_workers'</span><span class="p">:</span> <span class="mi">10</span><span class="p">,</span>
-      <span class="s">'temp_location'</span><span class="p">:</span> <span class="s">'gs://'</span> <span class="o">+</span> <span class="n">BUCKET</span> <span class="o">+</span> <span class="s">'/temp'</span>
-  <span class="p">}</span>
+<pre><code class="language-python">  pipeline_options = {
+      'project': PROJECT,
+      'staging_location': 'gs://' + BUCKET + '/staging',
+      'runner': 'DataflowRunner',
+      'setup_file': './setup.py',
+      'job_name': PROJECT + '-twcount',
+      'max_num_workers': 10,
+      'temp_location': 'gs://' + BUCKET + '/temp'
+  }
 </code></pre>
-</div>
 
-<p>This points to a <code class="highlighter-rouge">setup.py</code> file which specifies to package the <code class="highlighter-rouge">dfpipe</code> module using <code class="highlighter-rouge">setuptools</code>. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
+<p>This points to a <code>setup.py</code> file which specifies to package the <code>dfpipe</code> module using <code>setuptools</code>. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
 The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.</p>
 
 <h2 id="a-look-at-the-dataflow-pipeline">A look at the Dataflow pipeline</h2>
 
-<p>Now let’s take a quick look at <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, to see what the Python Dataflow pipeline does.</p>
+<p>Now let’s take a quick look at <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code>dfpipe/pipe.py</code></a>, to see what the Python Dataflow pipeline does.</p>
 
 <p>It reads recent tweets from the past N days from Cloud Datastore, then
 essentially splits into three processing branches. It finds the top N most popular words in terms of
@@ -133,91 +164,85 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
 
 <p>This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.</p>
 
-<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py"><code class="highlighter-rouge">main.py</code></a>, the app script for the GAE standard service, you can see the Tweet entity schema:</p>
+<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py"><code>main.py</code></a>, the app script for the GAE standard service, you can see the Tweet entity schema:</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">google.appengine.ext</span> <span class="kn">import</span> <span class="n">ndb</span>
-<span class="k">class</span> <span class="nc">Tweet</span><span class="p">(</span><span class="n">ndb</span><span class="o">.</span><span class="n">Model</span><span class="p">):</span>
-  <span class="n">user</span> <span class="o">=</span> <span class="n">ndb</span><span class="o">.</span><span class="n">StringProperty</span><span class="p">()</span>
-  <span class="n">text</span> <span class="o">=</span> <span class="n">ndb</span><span class="o">.</span><span class="n">StringProperty</span><span class="p">()</span>
-  <span class="n">created_at</span> <span class="o">=</span> <span class="n">ndb</span><span class="o">.</span><span class="n">DateTimeProperty</span><span class="p">()</span>
-  <span class="n">tid</span> <span class="o">=</span> <span class="n">ndb</span><span class="o">.</span><span class="n">IntegerProperty</span><span class="p">()</span>
-  <span class="n">urls</span> <span class="o">=</span> <span class="n">ndb</span><span class="o">.</span><span class="n">StringProperty</span><span class="p">(</span><span class="n">repeated</span><span class="o">=</span><span class="bp">True</span><span class="p">)</span>
+<pre><code class="language-python">from google.appengine.ext import ndb
+class Tweet(ndb.Model):
+  user = ndb.StringProperty()
+  text = ndb.StringProperty()
+  created_at = ndb.DateTimeProperty()
+  tid = ndb.IntegerProperty()
+  urls = ndb.StringProperty(repeated=True)
 </code></pre>
-</div>
 
-<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code class="highlighter-rouge">dfpipe/pipe.py</code></a>, we can use the <a href="https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1"><code class="highlighter-rouge">google.cloud.proto.datastore</code></a> API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the <code class="highlighter-rouge">created_at</code> field.</p>
+<p>In <a href="https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py"><code>dfpipe/pipe.py</code></a>, we can use the <a href="https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1"><code>google.cloud.proto.datastore</code></a> API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the <code>created_at</code> field.</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">google.cloud.proto.datastore.v1</span> <span class="kn">import</span> <span class="n">query_pb2</span>
-<span class="k">def</span> <span class="nf">make_query</span><span class="p">(</span><span class="n">kind</span><span class="p">):</span>
-  <span class="s">"""Creates a Cloud Datastore query to retrieve all Tweet entities with a
+<pre><code class="language-python">from google.cloud.proto.datastore.v1 import query_pb2
+def make_query(kind):
+  """Creates a Cloud Datastore query to retrieve all Tweet entities with a
   'created_at' date &gt; N days ago.
-  """</span>
-  <span class="n">days</span> <span class="o">=</span> <span class="mi">4</span>
-  <span class="n">now</span> <span class="o">=</span> <span class="n">datetime</span><span class="o">.</span><span class="n">datetime</span><span class="o">.</span><span class="n">now</span><span class="p">()</span>
-  <span class="n">earlier</span> <span class="o">=</span> <span class="n">now</span> <span class="o">-</span> <span class="n">datetime</span><span class="o">.</span><span class="n">timedelta</span><span class="p">(</span><span class="n">days</span><span class="o">=</span><span class="n">days</span><span class="p">)</span>
+  """
+  days = 4
+  now = datetime.datetime.now()
+  earlier = now - datetime.timedelta(days=days)
 
-  <span class="n">query</span> <span class="o">=</span> <span class="n">query_pb2</span><span class="o">.</span><span class="n">Query</span><span class="p">()</span>
-  <span class="n">query</span><span class="o">.</span><span class="n">kind</span><span class="o">.</span><span class="n">add</span><span class="p">()</span><span class="o">.</span><span class="n">name</span> <span class="o">=</span> <span class="n">kind</span>
-  <span class="n">datastore_helper</span><span class="o">.</span><span class="n">set_property_filter</span><span class="p">(</span><span class="n">query</span><span class="o">.</span><span class="nb">filter</span><span class="p">,</span> <span class="s">'created_at'</span><span class="p">,</span>
-                                       <span class="n">PropertyFilter</span><span class="o">.</span><span class="n">GREATER_THAN</span><span class="p">,</span>
-                                       <span class="n">earlier</span><span class="p">)</span>
-  <span class="k">return</span> <span class="n">query</span>
+  query = query_pb2.Query()
+  query.kind.add().name = kind
+  datastore_helper.set_property_filter(query.filter, 'created_at',
+                                       PropertyFilter.GREATER_THAN,
+                                       earlier)
+  return query
 </code></pre>
-</div>
 
 <p>Then, we use that query to define an input source for the pipeline:</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code> <span class="n">p</span> <span class="o">=</span> <span class="n">beam</span><span class="o">.</span><span class="n">Pipeline</span><span class="p">(</span><span class="n">options</span><span class="o">=</span><span class="n">pipeline_options</span><span class="p">)</span>
-  <span class="c"># Create a query to read entities from datastore.</span>
-  <span class="n">query</span> <span class="o">=</span> <span class="n">make_query</span><span class="p">(</span><span class="s">'Tweet'</span><span class="p">)</span>
+<pre><code class="language-python"> p = beam.Pipeline(options=pipeline_options)
+  # Create a query to read entities from datastore.
+  query = make_query('Tweet')
 
-  <span class="c"># Read entities from Cloud Datastore into a PCollection.</span>
-  <span class="n">lines</span> <span class="o">=</span> <span class="p">(</span><span class="n">p</span>
-      <span class="o">|</span> <span class="s">'read from datastore'</span> <span class="o">&gt;&gt;</span> <span class="n">ReadFromDatastore</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">query</span><span class="p">,</span> <span class="bp">None</span><span class="p">))</span>
-  <span class="o">...</span> 
+  # Read entities from Cloud Datastore into a PCollection.
+  lines = (p
+      | 'read from datastore' &gt;&gt; ReadFromDatastore(project, query, None))
+  ... 
 </code></pre>
-</div>
 
-<p>We can use <code class="highlighter-rouge">properties.get()</code> on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:</p>
+<p>We can use <code>properties.get()</code> on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="k">class</span> <span class="nc">WordExtractingDoFn</span><span class="p">(</span><span class="n">beam</span><span class="o">.</span><span class="n">DoFn</span><span class="p">):</span>
-  <span class="s">"""Parse each tweet text into words, removing some 'stopwords'."""</span>
+<pre><code class="language-python">class WordExtractingDoFn(beam.DoFn):
+  """Parse each tweet text into words, removing some 'stopwords'."""
 
-  <span class="k">def</span> <span class="nf">process</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">element</span><span class="p">):</span>
-    <span class="n">content_value</span> <span class="o">=</span> <span class="n">element</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s">'text'</span><span class="p">,</span> <span class="bp">None</span><span class="p">)</span>
-    <span class="n">text_line</span> <span class="o">=</span> <span class="s">''</span>
-    <span class="k">if</span> <span class="n">content_value</span><span class="p">:</span>
-      <span class="n">text_line</span> <span class="o">=</span> <span class="n">content_value</span><span class="o">.</span><span class="n">string_value</span>
-    <span class="n">words</span> <span class="o">=</span> <span class="nb">set</span><span class="p">([</span><span class="n">x</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span> <span class="k">for</span> <span class="n">x</span> <span class="ow">in</span> <span class="n">re</span><span class="o">.</span><span class="n">findall</span><span class="p">(</span><span class="s">r'[A-Za-z</span><span class="se">\'</span><span class="s">]+'</span><span class="p">,</span> <span class="n">text_line</span><span class="p">)])</span>
-    <span class="n">stopwords</span> <span class="o">=</span> <span class="p">[</span><span class="o">...</span><span class="p">]</span>
-    <span class="k">return</span> <span class="nb">list</span><span class="p">(</span><span class="n">words</span> <span class="o">-</span> <span class="nb">set</span><span class="p">(</span><span class="n">stopwords</span><span class="p">))</span>
+  def process(self, element):
+    content_value = element.properties.get('text', None)
+    text_line = ''
+    if content_value:
+      text_line = content_value.string_value
+    words = set([x.lower() for x in re.findall(r'[A-Za-z\']+', text_line)])
+    stopwords = [...]
+    return list(words - set(stopwords))
 </code></pre>
-</div>
 
-<p>Then, this snippet from the pipeline shows how  <code class="highlighter-rouge">WordExtractingDoFn</code> can be used as part of the Datastore input processing:</p>
+<p>Then, this snippet from the pipeline shows how  <code>WordExtractingDoFn</code> can be used as part of the Datastore input processing:</p>
 
-<div class="language-python highlighter-rouge"><pre class="highlight"><code>  <span class="c"># Count the occurrences of each word.</span>
-  <span class="n">percents</span> <span class="o">=</span> <span class="p">(</span><span class="n">lines</span>
-      <span class="o">|</span> <span class="s">'split'</span> <span class="o">&gt;&gt;</span> <span class="p">(</span><span class="n">beam</span><span class="o">.</span><span class="n">ParDo</span><span class="p">(</span><span class="n">WordExtractingDoFn</span><span class="p">())</span>
-                    <span class="o">.</span><span class="n">with_output_types</span><span class="p">(</span><span class="nb">unicode</span><span class="p">))</span>
-      <span class="o">|</span> <span class="s">'pair_with_one'</span> <span class="o">&gt;&gt;</span> <span class="n">beam</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="k">lambda</span> <span class="n">x</span><span class="p">:</span> <span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="mi">1</span><span class="p">))</span>
-      <span class="o">|</span> <span class="s">'group'</span> <span class="o">&gt;&gt;</span> <span class="n">beam</span><span class="o">.</span><span class="n">GroupByKey</span><span class="p">()</span>
-      <span class="o">|</span> <span class="s">'count'</span> <span class="o">&gt;&gt;</span> <span class="n">beam</span><span class="o">.</span><span class="n">Map</span><span class="p">(</span><span class="k">lambda</span> <span class="p">(</span><span class="n">word</span><span class="p">,</span> <span class="n">ones</span><span class="p">):</span> <span class="p">(</span><span class="n">word</span><span class="p">,</span> <span class="nb">sum</span><span class="p">(</span><span class="n">ones</span><span class="p">)))</span>
+<pre><code class="language-python">  # Count the occurrences of each word.
+  percents = (lines
+      | 'split' &gt;&gt; (beam.ParDo(WordExtractingDoFn())
+                    .with_output_types(unicode))
+      | 'pair_with_one' &gt;&gt; beam.Map(lambda x: (x, 1))
+      | 'group' &gt;&gt; beam.GroupByKey()
+      | 'count' &gt;&gt; beam.Map(lambda (word, ones): (word, sum(ones)))
 </code></pre>
-</div>
 
 <h2 id="launching-the-dataflow-pipeline-periodically-using-a-cron-job">Launching the Dataflow pipeline periodically using a cron job</h2>
 
 <p>In the example app, we want to launch a pipeline job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis.
-So, it makes sense to just set things up as an app <a href="https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml">cron</a> job, which looks like this (<code class="highlighter-rouge">backend</code> is the name of the app service that handles this request, and the <code class="highlighter-rouge">url</code> is the handler that launches the job):</p>
+So, it makes sense to just set things up as an app <a href="https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml">cron</a> job, which looks like this (<code>backend</code> is the name of the app service that handles this request, and the <code>url</code> is the handler that launches the job):</p>
 
-<div class="language-yaml highlighter-rouge"><pre class="highlight"><code><span class="s">cron</span><span class="pi">:</span>
-<span class="pi">-</span> <span class="s">description</span><span class="pi">:</span> <span class="s">launch dataflow pipeline</span>
-  <span class="s">url</span><span class="pi">:</span> <span class="s">/launchpipeline</span>
-  <span class="s">schedule</span><span class="pi">:</span> <span class="s">every 5 hours</span>
-  <span class="s">target</span><span class="pi">:</span> <span class="s">backend</span>
+<pre><code class="language-yaml">cron:
+- description: launch dataflow pipeline
+  url: /launchpipeline
+  schedule: every 5 hours
+  target: backend
 </code></pre>
-</div>
 
 <p>A pipeline job could of course be triggered by other means as well– e.g. as part of handling a client request to the app, or perhaps via a <a href="https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/">Task Queue task</a>.</p>
 
@@ -258,9 +283,9 @@ We look forward to hearing more about what you build!</p>
 
 Tags:
   
-    <a href="/tag/dataflow.html">dataflow</a>&nbsp
+    <a href="/tag/dataflow">dataflow</a>&nbsp
   
-    <a href="/tag/gae.html">gae</a>&nbsp
+    <a href="/tag/gae">gae</a>&nbsp
   
 </ul>
 
