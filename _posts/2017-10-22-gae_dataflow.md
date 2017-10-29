@@ -4,9 +4,7 @@ title:  "Using Cloud Dataflow pipeline templates from App Engine"
 categories:
 - Dataflow
 - App_Engine
-tags:
-- dataflow
-- gae
+tags: dataflow gae
 date: 2017-10-24
 ---
 
@@ -251,7 +249,7 @@ With BigQuery, it is easy to run some fun queries on the data.
 For example, we can find recent word co-occurrences that are 'interesting' by our metric:
 
 <figure>
-  <a href="https://storage.googleapis.com/amy-jo/images/bq_logweightsb.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/bq_logweightsb.png" width="500"/></a>
+  <a href="https://storage.googleapis.com/amy-jo/images/gae_dataflow/xScreenshot_2017-10-28_14_28_35%20copy%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/gae_dataflow/xScreenshot_2017-10-28_14_28_35%20copy%202.png" width="500"/></a>
   <figcaption><i>"Interesting" word co-occurrences</i></figcaption>
 </figure>
 
@@ -259,7 +257,7 @@ Or we can look for _emergent_ word pairs, that have become 'interesting' in the 
 2017 results):
 
 <figure>
-  <a href="https://storage.googleapis.com/amy-jo/images/temp_queries.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/temp_queries.png" width="500"/></a>
+  <a href="https://storage.googleapis.com/amy-jo/images/gae_dataflow/temp_queries.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/gae_dataflow/temp_queries.png" width="500"/></a>
   <figcaption><i>Emergent (new) interesting word co-occurrences can reflect current news</i></figcaption>
 </figure>
 
@@ -267,15 +265,15 @@ We can contrast the 'interesting' word pairs with the words that are simply the 
 can see that most of these words are common, but not particularly newsworthy):
 
 <figure>
-  <a href="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" target="_blank"><img src="https://amy-jo.storage.googleapis.com/images/gae_dataflow/gae_dataflow_wc1.png" width="400"/></a>
+  <a href="https://storage.googleapis.com/amy-jo/images/gae_dataflow/pScreenshot_2017-10-28_14_27_05%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/gae_dataflow/pScreenshot_2017-10-28_14_27_05%202.png" width="400"/></a>
   <figcaption><i>Popular, but not necessarily interesting words</i></figcaption>
 </figure>
 
-Or, find the most often-tweeted URLs from the past few weeks (some URLs are truncated in the output):
+Or, find the most frequently tweeted URLs from the past few weeks (some URLs are truncated in the output):
 
 <figure>
   <a href="https://storage.googleapis.com/amy-jo/images/bq_popurls2b.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/bq_popurls2b.png" width="500"/></a>
-  <figcaption><i>The most-often tweeted URLs from the past few weeks (filtering out some of the shortlinks)</i></figcaption>
+  <figcaption><i>The most frequently tweeted URLs from the past few weeks (filtering out some of the shortlinks)</i></figcaption>
 </figure>
 
 
