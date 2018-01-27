@@ -5,7 +5,7 @@ categories:
 - ML
 tags:
 - machine_learning
-- Cloud_ML
+- cloud_ml
 date: 2017-02-03
 ---
 

@@ -4,7 +4,7 @@ title:  "Using the Cloud Vision API with Twilio Messaging on Kubernetes"
 categories:
 - ML
 tags:
-- Vision_API
+- vision_api
 - machine_learning
 date: 2016-04-22
 ---
