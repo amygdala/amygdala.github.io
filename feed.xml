@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 26 Jan 2018 17:06:49 -0800</pubDate>
-    <lastBuildDate>Fri, 26 Jan 2018 17:06:49 -0800</lastBuildDate>
+    <pubDate>Fri, 26 Jan 2018 17:13:48 -0800</pubDate>
+    <lastBuildDate>Fri, 26 Jan 2018 17:13:48 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -348,8 +348,8 @@ You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&l
 
 </description>
         <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        <link>http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
         <category>CMLE</category>
         
@@ -357,6 +357,8 @@ You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&l
         
         <category>machine_learning</category>
         
+        
+        <category>ML</category>
         
         <category>TensorFlow</category>
         
