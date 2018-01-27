@@ -3,11 +3,366 @@
   <channel>
     <title>Amy on GCP</title>
     <description></description>
-    <link>http://amygdala.github.io/</link>
-    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sat, 28 Oct 2017 18:31:54 -0700</pubDate>
-    <lastBuildDate>Sat, 28 Oct 2017 18:31:54 -0700</lastBuildDate>
+    <link>http://localhost:4000/</link>
+    <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Fri, 26 Jan 2018 16:52:45 -0800</pubDate>
+    <lastBuildDate>Fri, 26 Jan 2018 16:52:45 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Easy distributed training with TensorFlow using tf.estimator.train_and_evaluate and Cloud ML Engine</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;TensorFlow release 1.4 introduced the function &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/train_and_evaluate&quot;&gt;&lt;strong&gt;&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;&lt;/a&gt;, which simplifies training, evaluation, and exporting of &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;&lt;code&gt;Estimator&lt;/code&gt;&lt;/a&gt; models. It abstracts away the details of &lt;a href=&quot;https://www.google.com/url?q=https://www.tensorflow.org/deploy/distributed&quot;&gt;distributed execution&lt;/a&gt; for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
+
+&lt;p&gt;This means that using &lt;strong&gt;&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;, you can run the same code on both locally and distributed in the cloud, on different devices and using different cluster configurations, and get consistent results, &lt;strong&gt;without making any code changes&lt;/strong&gt;. When you’re done training (or at intermediate stages), the trained model is automatically exported in a &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;form suitable for serving&lt;/a&gt; (e.g. for &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;Cloud ML Engine online prediction&lt;/a&gt;, or &lt;a href=&quot;https://www.tensorflow.org/serving/&quot;&gt;TensorFlow serving&lt;/a&gt;).&lt;/p&gt;
+
+&lt;p&gt;In this post, we’ll walk through how to use &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt; with an &lt;code&gt;Estimator&lt;/code&gt; model, and then show how easy it is to do &lt;strong&gt;distributed training of the model on &lt;a href=&quot;https://cloud.google.com/ml-engine&quot;&gt;Cloud ML Engine&lt;/a&gt; (CMLE)&lt;/strong&gt;, and to move between different cluster configurations with just a config tweak.
+(The TensorFlow code itself supports distribution on any infrastructure (GCE, GKE, etc.) when properly configured, but we will focus on CMLE, which makes the experience seamless).&lt;/p&gt;
+
+&lt;p&gt;The primary steps necessary to do this are:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;build your &lt;code&gt;Estimator&lt;/code&gt; model;&lt;/li&gt;
+  &lt;li&gt;define how data is fed into the model for both training and test datasets (often these definitions are essentially the same); and&lt;/li&gt;
+  &lt;li&gt;define training and eval specifications (&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code&gt;TrainSpec&lt;/code&gt;&lt;/a&gt; and &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;) passed to &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  The &lt;code&gt;EvalSpec&lt;/code&gt; can include information on how to export your trained model for prediction (serving), and we’ll look at how to do that as well.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Then we’ll look at how to &lt;strong&gt;use your trained model to make predictions&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;p&gt;The example also includes the use of &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/data/Dataset&quot;&gt;&lt;strong&gt;Datasets&lt;/strong&gt;&lt;/a&gt; to manage our input data. This API is part of TensorFlow 1.4, and is an &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/docs_src/performance/datasets_performance.md&quot;&gt;easier and more performant way&lt;/a&gt; to create input pipelines to TensorFlow models; this is particularly important with large datasets and when using accelerators.
+ (See &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/docs_src/performance/datasets_performance.md&quot;&gt;this article&lt;/a&gt; for more on why input pipelining is so important, particularly when using accelerators).&lt;/p&gt;
+
+&lt;p&gt;For our example, we’ll use the The &lt;a href=&quot;https://archive.ics.uci.edu/ml/datasets/Census+Income&quot;&gt;Census Income Data
+Set&lt;/a&gt; hosted by the &lt;a href=&quot;https://archive.ics.uci.edu/ml/datasets/&quot;&gt;UC Irvine Machine Learning
+Repository&lt;/a&gt;. We have hosted the data
+on &lt;a href=&quot;https://cloud.google.com/storage/&quot;&gt;Google Cloud Storage&lt;/a&gt; (GCS) in a slightly cleaned form. We’ll use this dataset to predict income category based on various information about a person.&lt;/p&gt;
+
+&lt;p&gt;This post omits some of the details of the example.
+To see the specifics and work through the code yourself, visit the &lt;a href=&quot;http://jupyter.org/&quot;&gt;Jupyter&lt;/a&gt; notebook &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;here&lt;/a&gt;.
+(The example in the &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt; is a slightly modified version of &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloudml-samples/tree/master/census/estimator/trainer&quot;&gt;this example&lt;/a&gt;).&lt;/p&gt;
+
+&lt;h2 id=&quot;step-1-create-an-estimator&quot;&gt;Step 1: create an Estimator&lt;/h2&gt;
+
+&lt;p&gt;We’ll first create an &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;&lt;code&gt;Estimator&lt;/code&gt;&lt;/a&gt; model using a prebuilt Estimator subclass, &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier&quot;&gt;&lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt;&lt;/a&gt;.
+This is a &lt;a href=&quot;https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html&quot;&gt;“wide and deep”&lt;/a&gt; model.
+Wide and deep models use a deep neural net (DNN) to learn high level abstractions about complex features or interactions between such features. These models then combine the outputs from the DNN with a &lt;a href=&quot;https://en.wikipedia.org/wiki/Linear_regression&quot;&gt;linear regression&lt;/a&gt; performed on simpler features. This provides a balance between power and speed that is effective on many structured data problems.&lt;/p&gt;
+
+&lt;p&gt;We’re using Estimators because they give us built-in support for distributed training and evaluation. You should nearly always use Estimators to create your TensorFlow models. You can build a &lt;a href=&quot;https://www.tensorflow.org/extend/estimators&quot;&gt;Custom Estimator&lt;/a&gt; if none of the pre-made Estimators suit your purpose.&lt;/p&gt;
+
+&lt;p&gt;See the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator&quot;&gt;notebook&lt;/a&gt; for the details of defining our Estimator, including specification of the expected format of the input data.
+The data is in csv format, and looks like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;39, State-gov, 77516, Bachelors, 13, Never-married, Adm-clerical, Not-in-family, White, Male, 2174, 0, 40, United-States, &amp;lt;=50K
+50, Self-emp-not-inc, 83311, Bachelors, 13, Married-civ-spouse, Exec-managerial, Husband, White, Male, 0, 0, 13, United-States, &amp;lt;=50K
+38, Private, 215646, HS-grad, 9, Divorced, Handlers-cleaners, Not-in-family, White, Male, 0, 0, 40, United-States, &amp;lt;=50K
+...
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;We’ll use the last field, which indicates income bracket, as our label, meaning that this is the value we’ll predict based on the values of the other fields.&lt;/p&gt;
+
+&lt;p&gt;In the &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator&quot;&gt;notebook&lt;/a&gt;, we define a &lt;code&gt;build_estimator&lt;/code&gt; function, which takes as input config info, and returns a &lt;code&gt;tf.estimator.DNNLinearCombinedClassifier&lt;/code&gt; object.
+We’ll call it like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;run_config = tf.estimator.RunConfig()
+run_config = run_config.replace(model_dir=output_dir)
+
+FIRST_LAYER_SIZE = 100  # Number of nodes in the first layer of the DNN
+NUM_LAYERS = 4  # Number of layers in the DNN
+SCALE_FACTOR = 0.7  # How quickly should the size of the layers in the DNN decay
+EMBEDDING_SIZE = 8  # Number of embedding dimensions for categorical columns
+
+estimator = build_estimator(
+    embedding_size=EMBEDDING_SIZE,
+    # Construct layers sizes with exponential decay
+    hidden_units=[
+        max(2, int(FIRST_LAYER_SIZE *
+                   SCALE_FACTOR**i))
+        for i in range(NUM_LAYERS)
+    ],
+    config=run_config
+)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;step-2-define-input-functions-using-datasets&quot;&gt;Step 2: Define input functions using Datasets&lt;/h2&gt;
+
+&lt;p&gt;Now that we have defined our model structure, the next step is to use it for training and evaluation.
+As with any &lt;code&gt;Estimator&lt;/code&gt;, we’ll need to tell the &lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt; object how to get its training and eval data. We’ll define a function (&lt;code&gt;input_fn&lt;/code&gt;) that knows how to generate features and labels for training or evaluation, then use that definition to create the actual train and eval input functions.&lt;/p&gt;
+
+&lt;p&gt;We’ll use &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/data/Dataset&quot;&gt;Datasets&lt;/a&gt; to access our data. 
+This API is a new way to create &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/docs_src/performance/datasets_performance.md&quot;&gt;input pipelines to TensorFlow models&lt;/a&gt;. 
+The &lt;code&gt;Dataset&lt;/code&gt; API is much more performant than using &lt;code&gt;feed_dict&lt;/code&gt; or the queue-based pipelines, and it’s &lt;a href=&quot;https://developers.googleblog.com/2017/09/introducing-tensorflow-datasets.html&quot;&gt;cleaner and easier&lt;/a&gt; to use.&lt;/p&gt;
+
+&lt;p&gt;In this simple example, our datasets are too small for the use of the Dataset API to make a large difference, but with larger datasets it becomes much more important.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;input_fn&lt;/code&gt; definition is the following. It uses a couple of helper functions that are defined in the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Define-input-functions-(using-Datasets)&quot;&gt;notebook&lt;/a&gt;.    &lt;br /&gt;
+&lt;code&gt;parse_label_column&lt;/code&gt; is used to convert the label strings (in our case, ‘ &amp;lt;=50K’ and ‘ &amp;gt;50K’) into &lt;a href=&quot;https://en.wikipedia.org/wiki/One-hot&quot;&gt;one-hot&lt;/a&gt; encodings.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;# This function returns a (features, indices) tuple, where features is a dictionary of
+# Tensors, and indices is a single Tensor of label indices.
+def input_fn(filenames,
+                      num_epochs=None,
+                      shuffle=True,
+                      skip_header_lines=0,
+                      batch_size=200):
+
+  dataset = tf.data.TextLineDataset(filenames).skip(skip_header_lines).map(parse_csv)
+
+  if shuffle:
+    dataset = dataset.shuffle(buffer_size=batch_size * 10)
+  dataset = dataset.repeat(num_epochs)
+  dataset = dataset.batch(batch_size)
+  iterator = dataset.make_one_shot_iterator()
+  features = iterator.get_next()
+  return features, parse_label_column(features.pop(LABEL_COLUMN))
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then, we’ll use &lt;code&gt;input_fn&lt;/code&gt; to define both the &lt;code&gt;train_input&lt;/code&gt; and &lt;code&gt;eval_input&lt;/code&gt; functions.  We just need to pass &lt;code&gt;input_fn&lt;/code&gt; the different source files to use for training versus evaluation.
+As we’ll see below, these two functions will be used to define a &lt;code&gt;TrainSpec&lt;/code&gt; and &lt;code&gt;EvalSpec&lt;/code&gt; used by &lt;code&gt;train_and_evaluate&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;train_input = lambda: input_fn(
+    TRAIN_FILES,
+    batch_size=40
+)
+
+# Don't shuffle evaluation data
+eval_input = lambda: input_fn(
+    EVAL_FILES,
+    batch_size=40,
+    shuffle=False
+)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;step-3-define-training-and-eval-specs&quot;&gt;Step 3: Define training and eval specs&lt;/h2&gt;
+
+&lt;p&gt;Now we’re nearly set.  We just need to define the the &lt;code&gt;TrainSpec&lt;/code&gt; and &lt;code&gt;EvalSpec&lt;/code&gt; used by &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;. These specify not only the input functions, but how to export our trained model; that is, how to save it in the standard &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format, so that we can later use it for serving.&lt;/p&gt;
+
+&lt;p&gt;First, we’ll define the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code&gt;TrainSpec&lt;/code&gt;&lt;/a&gt;, which takes as an arg &lt;code&gt;train_input&lt;/code&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;train_spec = tf.estimator.TrainSpec(train_input,
+                                  max_steps=1000
+                                  )
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;For our &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;, we’ll instantiate it with something additional – a list of &lt;em&gt;exporters&lt;/em&gt;, that specify how to export (save) the trained model so that it can be used for serving with respect to a particular data input format. Here we’ll just define one such exporter.&lt;/p&gt;
+
+&lt;p&gt;To specify our exporter, we must first define a
+&lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model#preparing_serving_inputs&quot;&gt;&lt;em&gt;serving input function&lt;/em&gt;&lt;/a&gt;.
+This is what determines the input format that the exporter will accept.
+As we saw above, during training, an &lt;code&gt;input_fn()&lt;/code&gt; ingests data and prepares it for use by the model.&lt;br /&gt;
+At serving time, similarly, a &lt;code&gt;serving_input_receiver_fn()&lt;/code&gt; accepts inference requests and prepares them for the model. This function has the following purposes:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;To add placeholders to the model graph that the serving system will feed with inference requests.&lt;/li&gt;
+  &lt;li&gt;To add any additional ops needed to convert data from the input format into the feature Tensors expected by the model.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;The serving input function should return a &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/export/ServingInputReceiver&quot;&gt;&lt;code&gt;tf.estimator.export.ServingInputReceiver&lt;/code&gt;&lt;/a&gt; object, which packages the placeholders and the resulting feature &lt;code&gt;Tensors&lt;/code&gt; together.&lt;/p&gt;
+
+&lt;p&gt;A &lt;code&gt;ServingInputReceiver&lt;/code&gt; is instantiated with two arguments — &lt;code&gt;features&lt;/code&gt;, and &lt;code&gt;receiver_tensors&lt;/code&gt;. The &lt;code&gt;features&lt;/code&gt; represent the inputs to our Estimator when it is being served for prediction. The &lt;code&gt;receiver_tensor&lt;/code&gt; represents inputs to the server.&lt;/p&gt;
+
+&lt;p&gt;These two arguments will not necessarily always be the same — in some cases we may want to perform some transformation(s) before feeding the data to the model. &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloudml-samples/blob/master/census/estimator/trainer/model.py#L197&quot;&gt;Here’s&lt;/a&gt; one example of that, where the inputs to the server (csv-formatted rows) include a field to be removed.&lt;/p&gt;
+
+&lt;p&gt;However, in our case, the inputs to the server are the same as the features input to the model. Here’s what our serving input function looks like:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;def json_serving_input_fn():
+  &quot;&quot;&quot;Build the serving inputs.&quot;&quot;&quot;
+  inputs = {}
+  for feat in INPUT_COLUMNS:
+    inputs[feat.name] = tf.placeholder(shape=[None], dtype=feat.dtype)
+
+  return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Then, we define an &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/Exporter&quot;&gt;Exporter&lt;/a&gt; in terms of that serving input function. It will export the model in &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format. We pass the &lt;code&gt;EvalSpec&lt;/code&gt; constructor a list of exporters (here, just one).&lt;/p&gt;
+
+&lt;p&gt;Here, we’re using
+the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/FinalExporter&quot;&gt;&lt;code&gt;FinalExporter&lt;/code&gt;&lt;/a&gt;.  This class performs a single export at the end of training. This is in contrast to
+&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/LatestExporter&quot;&gt;&lt;code&gt;LatestExporter&lt;/code&gt;&lt;/a&gt;, which does regular exports and retains the last &lt;code&gt;N&lt;/code&gt;. (We’re just using one exporter here, but if you define multiple exporters, training will result in multiple saved models).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;exporter = tf.estimator.FinalExporter('census',
+      json_serving_input_fn)
+eval_spec = tf.estimator.EvalSpec(eval_input,
+                                steps=100,
+                                exporters=[exporter],
+                                name='census-eval'
+                                )
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&quot;step-4-train-your-model-using-trainandevaluate&quot;&gt;Step 4: Train your model using &lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/h2&gt;
+
+&lt;p&gt;Now we have defined everything we need to train and evaluate our model, and export the trained model for serving, via a call to &lt;strong&gt;&lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;This call will train your model and export the result in a format that makes it easy to use it for prediction!&lt;/p&gt;
+
+&lt;p&gt;Using &lt;code&gt;train_and_evaluate&lt;/code&gt;, the training behavior will be consistent whether you run this function in a local/non-distributed context or in a distributed configuration.&lt;/p&gt;
+
+&lt;p&gt;The exported trained model can be served on many platforms. You may particularly want to consider ways to scalably serve your model, in order to handle many prediction requests at once— say if you’re using your model in an app you’re building, and you expect it to become popular.  &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;Cloud ML Engine online prediction&lt;/a&gt;, or &lt;a href=&quot;https://www.tensorflow.org/serving/&quot;&gt;TensorFlow serving&lt;/a&gt;), are two of the options for doing this.&lt;/p&gt;
+
+&lt;p&gt;In this post, we’ll look at using &lt;strong&gt;CMLE Online Prediction&lt;/strong&gt;. But first, let’s take a closer look at our exported model.&lt;/p&gt;
+
+&lt;h3 id=&quot;examine-the-signature-of-the-exported-model&quot;&gt;Examine the signature of the exported model.&lt;/h3&gt;
+
+&lt;p&gt;TensorFlow ships with a CLI that allows you to inspect the &lt;em&gt;signature&lt;/em&gt; of exported binary files. This can be useful as a sanity check. 
+It’s run as follows, by passing it the path to directory containing the &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/saved_model/README.md&quot;&gt;saved model&lt;/a&gt;, which will be called &lt;code&gt;saved_model.pb&lt;/code&gt;.
+For our model, it will be found under &lt;code&gt;$output_dir/export/census&lt;/code&gt;.  This is because we passed the &lt;code&gt;census&lt;/code&gt; name to our &lt;code&gt;FinalExporter&lt;/code&gt; above.  (&lt;code&gt;$output_dir&lt;/code&gt; was specified when we constructed our estimator).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;saved_model_cli show --dir $output_dir/export/census/&amp;lt;timestamp&amp;gt; --tag serve --signature_def predict
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The &lt;code&gt;saved_model_cli&lt;/code&gt; command shows us this info (abbreviated for conciseness):&lt;/p&gt;
+
+&lt;pre&gt;&lt;code&gt;The given SavedModel SignatureDef contains the following input(s):
+inputs['age'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1)
+    name: Placeholder_8:0
+inputs['capital_gain'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1)
+    name: Placeholder_10:0
+inputs['capital_loss'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1)
+    name: Placeholder_11:0
+inputs['education'] tensor_info:
+    dtype: DT_STRING
+    shape: (-1)
+    name: Placeholder_2:0
+&amp;lt;... more input fields here ...&amp;gt;
+The given SavedModel SignatureDef contains the following output(s):
+outputs['class_ids'] tensor_info:
+    dtype: DT_INT64
+    shape: (-1, 1)
+    name: head/predictions/classes:0
+outputs['classes'] tensor_info:
+    dtype: DT_STRING
+    shape: (-1, 1)
+    name: head/predictions/str_classes:0
+outputs['logistic'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1, 1)
+    name: head/predictions/logistic:0
+outputs['logits'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1, 1)
+    name: head/predictions/logits:0
+outputs['probabilities'] tensor_info:
+    dtype: DT_FLOAT
+    shape: (-1, 2)
+    name: head/predictions/probabilities:0
+Method name is: tensorflow/serving/predict
+&lt;/code&gt;&lt;/pre&gt;
+&lt;p&gt;Based on our knowledge of &lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt;, and the input fields we defined, this looks as we expect. (Notice that the model generates multiple outputs).&lt;/p&gt;
+
+&lt;h3 id=&quot;check-local-prediction-with-gcloud&quot;&gt;Check local prediction with gcloud&lt;/h3&gt;
+
+&lt;p&gt;Another useful sanity check is running local prediction with your trained model. We’ll use the &lt;a href=&quot;https://cloud.google.com/sdk/downloads&quot;&gt;Google Cloud SDK (gcloud)&lt;/a&gt; command-line tool for that.&lt;/p&gt;
+
+&lt;p&gt;We’ll use the example input in &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/test.json&quot;&gt;&lt;code&gt;test.json&lt;/code&gt;&lt;/a&gt; to predict a person’s income bracket’ based on the features encoded in the &lt;code&gt;test.json&lt;/code&gt; instance. Again, we point to the directory containing the saved model.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine local predict --model-dir $output_dir/export/census/&amp;lt;timestamp&amp;gt; --json-instances test.json
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;pre&gt;&lt;code&gt;CLASS_IDS  CLASSES  LOGISTIC               LOGITS                 PROBABILITIES
+[0]        [u'0']   [0.06585630029439926]  [-2.6521551609039307]  [0.9341437220573425, 0.06585630774497986]
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;You can see how the input fields in &lt;code&gt;test.json&lt;/code&gt; correspond to the inputs listed by the &lt;code&gt;saved_model_cli&lt;/code&gt; command above, and how the prediction outputs correspond to the outputs listed by &lt;code&gt;saved_model_cli&lt;/code&gt;. &lt;br /&gt;
+In this model, Class 0 indicates income &amp;lt;= 50k and Class 1 indicates income &amp;gt;50k.&lt;/p&gt;
+
+&lt;h2 id=&quot;using-cloud-ml-engine-for-easy-distributed-training-and-scalable-online-prediction&quot;&gt;Using Cloud ML Engine for easy distributed training and scalable online prediction&lt;/h2&gt;
+
+&lt;p&gt;In the previous section, we looked at how to use &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt; to train and export a model, and then make predictions using the trained model.&lt;/p&gt;
+
+&lt;p&gt;In this section, you’ll see how easy it is to use the same code — without any changes — to do &lt;strong&gt;distributed training on &lt;a href=&quot;https://cloud.google.com/ml-engine/&quot;&gt;Cloud ML Engine (CMLE)&lt;/a&gt;&lt;/strong&gt;, thanks to the &lt;strong&gt;&lt;code&gt;Estimator&lt;/code&gt;&lt;/strong&gt; class and &lt;strong&gt;&lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;.  Then we’ll use &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict&quot;&gt;&lt;strong&gt;CMLE Online Prediction&lt;/strong&gt;&lt;/a&gt; to scalably serve the trained model.&lt;/p&gt;
+
+&lt;p&gt;A nice thing about CMLE is that there’s no lock-in. You could potentially train your TensorFlow model elsewhere, then deploy to CMLE for serving (prediction); or alternately use CMLE for distributed training and then serve elsewhere (e.g. with &lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow serving&lt;/a&gt;).  Here, we’ll show how to use CMLE for both stages.&lt;/p&gt;
+
+&lt;p&gt;To launch a training job on CMLE, we can again use &lt;code&gt;gcloud&lt;/code&gt;.  We’ll need to package our code so that it can be deployed, and specify the Python file to run to start the training (&lt;code&gt;--module-name&lt;/code&gt;).&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;trainer&lt;/code&gt; module code is &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/census_train_and_eval/trainer&quot;&gt;here&lt;/a&gt;.
+&lt;code&gt;trainer.task&lt;/code&gt; is the entry point, and when that file is run, it calls &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.&lt;br /&gt;
+(You can read more about how to package your code &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/packaging-trainer&quot;&gt;here&lt;/a&gt;).&lt;/p&gt;
+
+&lt;p&gt;If we want to, we could test (distributed) training via &lt;code&gt;gcloud&lt;/code&gt; locally first, to make sure that we have everything packaged up correctly. See the accompanying &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt; for details.&lt;/p&gt;
+
+&lt;p&gt;But here, we’ll jump right in to using Cloud ML Engine (CMLE) to do cloud-based distributed training.&lt;/p&gt;
+
+&lt;p&gt;We’ll set the training job to use the &lt;code&gt;SCALE_TIER_STANDARD_1&lt;/code&gt; scale spec.  This &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/training-overview#job_configuration_parameters&quot;&gt;gives you&lt;/a&gt; one ‘master’ instance, plus four &lt;em&gt;workers&lt;/em&gt; and three &lt;em&gt;parameter servers&lt;/em&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine jobs submit training $JOB_NAME --scale-tier `SCALE_TIER_STANDARD_1` \
+    --runtime-version 1.4 --job-dir $GCS_JOB_DIR \
+    --module-name trainer.task --package-path trainer/ \
+    --region us-central1 \
+    -- --train-steps 5000 --train-files $GCS_TRAIN_FILE --eval-files $GCS_EVAL_FILE --eval-steps 100      
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The cool thing about this is that &lt;strong&gt;we don’t need to change our code at all to use this distributed config&lt;/strong&gt;.  Our use of the Estimator class in conjunction with the CMLE scale specification allows the distributed training config to be transparent to us — it just works.
+Further, we could swap in any of the other predefined scale tiers (say &lt;code&gt;BASIC_GPU&lt;/code&gt;), or define our own custom cluster, again without any code changes.
+For example, we could alternately &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Train-on-CMLE-using-a-custom-GPU-cluster&quot;&gt;configure our job&lt;/a&gt; to &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/using-gpus&quot;&gt;use a GPU cluster&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Once your training job is running, you can stream its logs to your terminal, and/or monitor it in the &lt;a href=&quot;https://console.cloud.google.com/mlengine/jobs&quot;&gt;Cloud Console&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_jobs.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_jobs.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;In the logs, you’ll see output from the multiple worker replicas and parameter servers that we utilized by specifying a &lt;code&gt;SCALE_TIER_STANDARD_1 &lt;/code&gt; cluster.  In the logs viewers, you can filter on the output of a particular node (e.g. a given worker) if you like.&lt;/p&gt;
+
+&lt;p&gt;Once your job is finished, you’ll find the exported model under the specified GCS directory, in addition to other data such as model checkpoints.
+That exported model has exactly the same signature as the locally-generated model we looked at above, and can be used in just the same ways.&lt;/p&gt;
+
+&lt;h3 id=&quot;scalably-serve-your-trained-model-with-cmle-online-prediction&quot;&gt;Scalably serve your trained model with CMLE Online Prediction&lt;/h3&gt;
+
+&lt;p&gt;You can deploy an exported model to Cloud ML Engine and scalably serve it for &lt;strong&gt;prediction&lt;/strong&gt;, using the &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;CMLE Prediction service&lt;/a&gt; to generate a prediction on new data with an easy-to-use REST API. Here we’ll look at CMLE Online Prediction, which &lt;a href=&quot;https://cloud.google.com/blog/big-data/2017/12/bringing-cloud-ml-engine-to-more-developers-with-online-prediction-features-and-reduced-prices&quot;&gt;recently moved to general availability (GA) status&lt;/a&gt;; but &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/batch-predict&quot;&gt;batch prediction&lt;/a&gt; is supported as well.&lt;/p&gt;
+
+&lt;p&gt;The online prediction service scales the number of nodes it uses to maximize the number of requests it can handle without introducing too much latency. To do that, the service:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Allocates some nodes the first time you request predictions after a long pause in requests.&lt;/li&gt;
+  &lt;li&gt;Scales the number of nodes in response to request traffic, adding nodes when traffic increases, and removing them when there are fewer requests.&lt;/li&gt;
+  &lt;li&gt;Keeps at least one node ready to handle requests even when there are none to handle. It then scales down to zero by default when your model version goes several minutes without a prediction request (but if you like, you can specify a minimum number of nodes to keep ready for a given model).&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;See the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Scalably-serve-your-trained-model-with-CMLE-Online-Prediction&quot;&gt;notebook&lt;/a&gt; for details on how to deploy your model so that you can use it to make predictions.&lt;/p&gt;
+
+&lt;p&gt;Once your model is serving with CMLE Online Prediction, you can access it via a REST API.  It’s &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict#requesting_predictions&quot;&gt;easy&lt;/a&gt; to do this programmatically via the Google &lt;a href=&quot;https://cloud.google.com/apis/docs/cloud-client-libraries&quot;&gt;Cloud Client libraries&lt;/a&gt; or via &lt;code&gt;gcloud&lt;/code&gt;.  &lt;br /&gt;
+&lt;code&gt;gcloud&lt;/code&gt; is great for testing your deployed model, and the command looks almost the same as it did for the local version of the model:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine predict --model census --version v1 --json-instances test.json
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;The Cloud Console makes it easy to inspect the different versions of a model, as well as set the default version: &lt;a href=&quot;https://console.cloud.google.com/mlengine/models&quot;&gt;console.cloud.google.com/mlengine/models&lt;/a&gt;.
+You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_model_details.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_model_details.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;h2 id=&quot;summary--and-whats-next&quot;&gt;Summary — and what’s next?&lt;/h2&gt;
+
+&lt;p&gt;In this post, we’ve walked through how to configure and use the TensorFlow &lt;code&gt;Estimator&lt;/code&gt; class, and
+&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  They enable distributed execution for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
+
+&lt;p&gt;For more, see the accompanying &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt;.  The notebook includes examples of &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Train-on-CMLE-using-a-custom-GPU-cluster&quot;&gt;how to run your training job on a CMLE GPU cluster&lt;/a&gt;, and &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Use-Hyperparameter-Tuning&quot;&gt;how to use CMLE to do&lt;/a&gt; &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/hyperparameter-tuning-overview&quot;&gt;hyperparameter tuning&lt;/a&gt;.&lt;/p&gt;
+
+</description>
+        <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
+        <link>http://localhost:4000/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://localhost:4000/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        
+        <category>CMLE</category>
+        
+        <category>tensorflow</category>
+        
+        <category>machine_learning</category>
+        
+        
+        <category>TensorFlow</category>
+        
+        <category>Cloud_ML_Engine</category>
+        
+      </item>
     
       <item>
         <title>Using Cloud Dataflow pipeline templates from App Engine</title>
@@ -289,8 +644,8 @@ launch template-based pipelines.&lt;/p&gt;
 your own analytics — via App Engine apps or otherwise. We look forward to hearing more about what you build!&lt;/p&gt;
 </description>
         <pubDate>Tue, 24 Oct 2017 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
+        <link>http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -489,8 +844,8 @@ We look forward to hearing more about what you build!&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        <link>http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -696,8 +1051,8 @@ flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the predi
 &lt;/ul&gt;
 </description>
         <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
+        <link>http://localhost:4000/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/2017/02/03/transfer_learning.html</guid>
         
         <category>machine_learning</category>
         
@@ -802,8 +1157,8 @@ Or, you could include the wiki URLs in the results for any entities that have th
 
 </description>
         <pubDate>Sat, 14 Jan 2017 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/ml/2017/01/14/nlapi.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/01/14/nlapi.html</guid>
+        <link>http://localhost:4000/ml/2017/01/14/nlapi.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/2017/01/14/nlapi.html</guid>
         
         <category>machine_learning</category>
         
@@ -856,8 +1211,8 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 22 Apr 2016 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
+        <link>http://localhost:4000/ml/2016/04/22/vision-api.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/2016/04/22/vision-api.html</guid>
         
         <category>Vision_API</category>
         
@@ -882,8 +1237,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Mon, 15 Feb 2016 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
+        <link>http://localhost:4000/dataflow/2016/02/15/dataflow.html</link>
+        <guid isPermaLink="true">http://localhost:4000/dataflow/2016/02/15/dataflow.html</guid>
         
         <category>Apache_Beam</category>
         
@@ -914,8 +1269,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Wed, 20 May 2015 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</guid>
+        <link>http://localhost:4000/gae/php/2015/05/20/gaephp.html</link>
+        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/05/20/gaephp.html</guid>
         
         <category>php</category>
         
@@ -947,8 +1302,8 @@ Instead, it is designed to continously run a scalable data ingestion pipeline.&l
 
 </description>
         <pubDate>Wed, 11 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/kubernetes/2015/03/11/pubsub.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/kubernetes/2015/03/11/pubsub.html</guid>
+        <link>http://localhost:4000/kubernetes/2015/03/11/pubsub.html</link>
+        <guid isPermaLink="true">http://localhost:4000/kubernetes/2015/03/11/pubsub.html</guid>
         
         <category>kubernetes</category>
         
@@ -981,8 +1336,8 @@ In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_ge
 
 </description>
         <pubDate>Mon, 09 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</guid>
+        <link>http://localhost:4000/gae/php/2015/03/09/gaephp.html</link>
+        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/03/09/gaephp.html</guid>
         
         <category>php</category>
         
@@ -992,286 +1347,6 @@ In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_ge
         <category>gae</category>
         
         <category>php</category>
-        
-      </item>
-    
-      <item>
-        <title>Persistent Installation of MySQL and WordPress on Kubernetes</title>
-        <description>&lt;p&gt;This post describes how to run a persistent installation of &lt;a href=&quot;https://wordpress.org/&quot;&gt;Wordpress&lt;/a&gt; on &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;We’ll use the &lt;a href=&quot;https://registry.hub.docker.com/_/mysql/&quot;&gt;mysql&lt;/a&gt; and &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;wordpress&lt;/a&gt; official &lt;a href=&quot;https://www.docker.com/&quot;&gt;Docker&lt;/a&gt; images for this installation. (The wordpress image includes an Apache server).&lt;/p&gt;
-
-&lt;p&gt;We’ll create two Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md&quot;&gt;pods&lt;/a&gt; to run mysql and wordpress, both with associated &lt;a href=&quot;https://cloud.google.com/compute/docs/disks&quot;&gt;persistent disks&lt;/a&gt;, then set up a Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; to front each pod.&lt;/p&gt;
-
-&lt;p&gt;This example demonstrates several useful things, including: how to set up and use persistent disks with Kubernetes pods; how to define Kubernetes services to leverage docker-links-compatible service environment variables; and use of an external load balancer to expose the wordpress service externally and make it transparent to the user if the wordpress pod moves to a different cluster node.&lt;/p&gt;
-
-&lt;p&gt;Some of the post details, such as the Persistent Disk setup, require that Kubernetes is running on &lt;a href=&quot;https://cloud.google.com/compute/&quot;&gt;Google Compute Engine&lt;/a&gt;.&lt;/p&gt;
-
-&lt;h2 id=&quot;install-gcloud-and-start-up-a-kubernetes-cluster&quot;&gt;Install gcloud and Start up a Kubernetes Cluster&lt;/h2&gt;
-
-&lt;p&gt;First, if you have not already done so, &lt;a href=&quot;https://cloud.google.com/compute/docs/quickstart&quot;&gt;create&lt;/a&gt; a &lt;a href=&quot;https://cloud.google.com/&quot;&gt;Google Cloud Platform&lt;/a&gt; project, and install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;gcloud SDK&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;Then, set the gcloud default project name to point to the project you want to use for your Kubernetes cluster:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;gcloud config set project &amp;lt;project-name&amp;gt;
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;Next, grab the Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/releases&quot;&gt;release binary&lt;/a&gt;.  (This example was tested with release 0.8.1).&lt;/p&gt;
-
-&lt;p&gt;Then, start up a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;Kubernetes&lt;/a&gt; &lt;a href=&quot;...&quot;&gt;cluster&lt;/a&gt; as &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/getting-started-guides/gce.md&quot;&gt;described here&lt;/a&gt;.&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-up.sh
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation.&lt;/p&gt;
-
-&lt;h2 id=&quot;create-and-format-two-persistent-disks&quot;&gt;Create and format two persistent disks&lt;/h2&gt;
-
-&lt;p&gt;For this WordPress installation, we’re going to configure our Kubernetes &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/pods.md&quot;&gt;pods&lt;/a&gt; to use &lt;a href=&quot;https://cloud.google.com/compute/docs/disks&quot;&gt;persistent disks&lt;/a&gt;. This means that we can preserve installation state across pod shutdown and re-startup.&lt;/p&gt;
-
-&lt;p&gt;Before doing anything else, we’ll create and format the persistent disks that we’ll use for the installation: one for the mysql pod, and one for the wordpress pod.
-The general series of steps required is as described &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/volumes.md&quot;&gt;here&lt;/a&gt;, where $ZONE is the zone where your cluster is running, and $DISK_SIZE is specified as, e.g. ‘500GB’.  In future, this process will be more streamlined.&lt;/p&gt;
-
-&lt;p&gt;So for the two disks used in this example, do the following.
-First create and format the mysql disk, setting the disk size to meet your needs:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; mysql-disk
-gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;mysql-disk --device-name temp-data kubernetes-master
-gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
-gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk mysql-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Then create and format the wordpress disk.  Note that you may not want as large a disk size for the wordpress code as for the mysql disk.&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;gcloud compute disks create --size&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$DISK_SIZE&lt;/span&gt; --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; wordpress-disk
-gcloud compute instances attach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$wordpress&lt;/span&gt;-disk --device-name temp-data kubernetes-master
-gcloud compute ssh --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; kubernetes-master &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
-  --command &lt;span class=&quot;s2&quot;&gt;&amp;quot;sudo mkdir /mnt/tmp &amp;amp;&amp;amp; sudo /usr/share/google/safe_format_and_mount /dev/disk/by-id/google-temp-data /mnt/tmp&amp;quot;&lt;/span&gt;
-gcloud compute instances detach-disk --zone&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;$ZONE&lt;/span&gt; --disk wordpress-disk kubernetes-master&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;h2 id=&quot;start-the-mysql-pod-and-service&quot;&gt;Start the Mysql Pod and Service&lt;/h2&gt;
-
-&lt;p&gt;Now that the persistent disks are defined, the Kubernetes pods can be launched.  We’ll start with the mysql pod.&lt;/p&gt;
-
-&lt;h3 id=&quot;start-the-mysql-pod&quot;&gt;Start the Mysql pod&lt;/h3&gt;
-
-&lt;p&gt;Copy and then edit this &lt;a href=&quot;https://gist.github.com/amygdala/88a8740e3946ba55125b&quot;&gt;mysql.yaml&lt;/a&gt; pod definition to use the database password you specify.  &lt;code&gt;mysql.yaml&lt;/code&gt; looks like this:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;MYSQL_ROOT_PASSWORD&lt;/span&gt;
-           &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;cpu&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;100&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;/var/lib/mysql&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql-disk&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Note that we’ve defined a volume mount for &lt;code&gt;/var/lib/mysql&lt;/code&gt;, and specified a volume that uses the persistent disk (&lt;code&gt;mysql-disk&lt;/code&gt;) that you created.
-Once you’ve edited the file to set your database password, create the pod as follows, where &lt;code&gt;&amp;lt;kubernetes&amp;gt;&lt;/code&gt; is the path to your Kubernetes installation:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;It may take a short period before the new pod reaches the &lt;code&gt;Running&lt;/code&gt; state.
-List all pods to see the status of this new pod and the cluster node that it is running on:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;h4 id=&quot;check-the-running-pod-on-the-compute-instance&quot;&gt;Check the running pod on the Compute instance&lt;/h4&gt;
-
-&lt;p&gt;You can take a look at the logs for a pod by using &lt;code&gt;kubectl.sh log&lt;/code&gt;.  For example:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh log mysql&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;If you want to do deeper troubleshooting, e.g. if it seems a container is not staying up, you can also ssh in to the node that a pod is running on.  There, you can run &lt;code&gt;sudo -s&lt;/code&gt;, then &lt;code&gt;docker ps -a&lt;/code&gt; to see all the containers.  You can then inspect the logs of containers that have exited, via &lt;code&gt;docker logs &amp;lt;container_id&amp;gt;&lt;/code&gt;.  (You can also find some relevant logs under &lt;code&gt;/var/log&lt;/code&gt;, e.g. &lt;code&gt;docker.log&lt;/code&gt; and &lt;code&gt;kubelet.log&lt;/code&gt;).&lt;/p&gt;
-
-&lt;h3 id=&quot;start-the-myql-service&quot;&gt;Start the Myql service&lt;/h3&gt;
-
-&lt;p&gt;We’ll define and start a &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md&quot;&gt;service&lt;/a&gt; that lets other pods access the mysql database on a known port and host.
-We will specifically name the service &lt;code&gt;mysql&lt;/code&gt;.  This will let us leverage the support for &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes/blob/master/docs/services.md#how-do-they-work&quot;&gt;Docker-links-compatible&lt;/a&gt; serviceenvironment variables when we up the wordpress pod. The wordpress Docker image expects to be linked to a mysql container named &lt;code&gt;mysql&lt;/code&gt;, as you can see in the “How to use this image” section on the wordpress docker hub &lt;a href=&quot;https://registry.hub.docker.com/_/wordpress/&quot;&gt;page&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;So if we label our Kubernetes mysql service &lt;code&gt;mysql&lt;/code&gt;, the wordpress pod will be able to use the Docker-links-compatible environment variables, defined by Kubernetes, to connect to the database.&lt;/p&gt;
-
-&lt;p&gt;Copy the &lt;a href=&quot;https://gist.github.com/amygdala/9f88e2ea9c37d26a8a68&quot;&gt;mysql-service.yaml&lt;/a&gt; file, which looks like this:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3306&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mysql&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Then, start the service like this:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f mysql-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;You can see what services are running via:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;h2 id=&quot;start-wordpress-pod-and-service&quot;&gt;Start WordPress Pod and Service&lt;/h2&gt;
-
-&lt;p&gt;Once the mysql service is up, start the wordpress pod.&lt;/p&gt;
-
-&lt;p&gt;Copy this pod config file: &lt;a href=&quot;https://gist.github.com/amygdala/ccf107f940054ae5d740&quot;&gt;wordpress.yaml&lt;/a&gt; and edit the database password to be the same as you used in &lt;code&gt;mysql.yaml&lt;/code&gt;. Note that this config file also defines a volume, this one using the &lt;code&gt;wordpress-disk&lt;/code&gt; persistent disk that you created.&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;desiredState&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;manifest&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;version&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontendController&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ports&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumeMounts&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# name must match the volume name below&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# mount path within the container&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;mountPath&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;/var/www/html&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;env&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;WORDPRESS_DB_PASSWORD&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# change this&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;value&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;yourpassword&lt;/span&gt;
-    &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;volumes&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-      &lt;span class=&quot;p p-Indicator&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-persistent-storage&lt;/span&gt;
-        &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;source&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-          &lt;span class=&quot;c1&quot;&gt;# emptyDir: {}&lt;/span&gt;
-          &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;persistentDisk&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-            &lt;span class=&quot;c1&quot;&gt;# This GCE PD must already exist and be formatted ext4&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;pdName&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;wordpress-disk&lt;/span&gt;
-            &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;fsType&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;ext4&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Pod&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Create the pod:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;And list the pods to check that the status of the new pod changes to &lt;code&gt;Running&lt;/code&gt;.  As above, this might take a minute.&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get pods&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;h3 id=&quot;start-the-wordpress-service&quot;&gt;Start the WordPress service&lt;/h3&gt;
-
-&lt;p&gt;Once the wordpress pod is running, start its service.  Copy
-&lt;a href=&quot;https://gist.github.com/amygdala/72128b4624a7c9317a45&quot;&gt;wordpress-service.yaml&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;The service config file looks like this:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-yaml&quot; data-lang=&quot;yaml&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;Service&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;v1beta1&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;id&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# the port that this service should serve on&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;port&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;3000&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# just like the selector in the replication controller,&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# but this time it identifies the set of pods to load balance&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# traffic to.&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;selector&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# the container on each pod to connect to, can be a name&lt;/span&gt;
-&lt;span class=&quot;c1&quot;&gt;# (e.g. &amp;#39;www&amp;#39;) or a number (e.g. 80)&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;containerPort&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;80&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;labels&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt;
-  &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;frontend&lt;/span&gt;
-&lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;createExternalLoadBalancer&lt;/span&gt;&lt;span class=&quot;p p-Indicator&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;l l-Scalar l-Scalar-Plain&quot;&gt;true&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Note the &lt;code&gt;createExternalLoadBalancer&lt;/code&gt; setting.  This will set up the wordpress service behind an external IP.
-&lt;code&gt;createExternalLoadBalancer&lt;/code&gt; only works on GCE.&lt;/p&gt;
-
-&lt;p&gt;Note also that we’ve set the service port to 3000.  We’ll return to that shortly.&lt;/p&gt;
-
-&lt;p&gt;Start the service:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh create -f wordpress-service.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;and see it in the list of services:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh get services&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;Then, find the external IP for your WordPress service by listing the forwarding rules for your project:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;$ gcloud compute forwarding-rules list
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;Look for the rule called &lt;code&gt;frontend&lt;/code&gt;, which is what we named the wordpress service, and note its IP address.&lt;/p&gt;
-
-&lt;h2 id=&quot;visit-your-new-wordpress-blog&quot;&gt;Visit your new WordPress blog&lt;/h2&gt;
-
-&lt;p&gt;To access your new installation, you’ll first need to open up port 3000 (the port specified in the wordpress service config) in the firewall. Do this via:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;$ gcloud compute firewall-rules create wordpress --allow tcp:3000
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;This will define a firewall rule called &lt;code&gt;wordpress&lt;/code&gt; that opens port 3000 in the default network for your project.&lt;/p&gt;
-
-&lt;p&gt;Now, we can visit the running WordPress app.
-Use the external IP that you obtained above, and visit it on port 3000:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;http://&amp;lt;external_ip&amp;gt;:3000
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;You should see the familiar WordPress init page.&lt;/p&gt;
-
-&lt;h2 id=&quot;take-down-and-restart-your-blog&quot;&gt;Take down and restart your blog&lt;/h2&gt;
-
-&lt;p&gt;Set up your WordPress blog and play around with it a bit.  Then, take down its pods and bring them back up again. Because you used persistent disks, your blog state will be preserved.&lt;/p&gt;
-
-&lt;p&gt;If you are just experimenting, you can take down and bring up only the pods:&lt;/p&gt;
-
-&lt;figure class=&quot;highlight&quot;&gt;&lt;pre&gt;&lt;code class=&quot;language-bash&quot; data-lang=&quot;bash&quot;&gt;&lt;span&gt;&lt;/span&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f wordpress.yaml
-$ &amp;lt;kubernetes&amp;gt;/cluster/kubectl.sh delete -f mysql.yaml&lt;/code&gt;&lt;/pre&gt;&lt;/figure&gt;
-
-&lt;p&gt;When you restart the pods again (using the &lt;code&gt;create&lt;/code&gt; operation as described above), their services will pick up the new pods based on their labels.&lt;/p&gt;
-
-&lt;p&gt;If you want to shut down the entire app installation, you can delete the services as well.&lt;/p&gt;
-
-&lt;p&gt;If you are ready to turn down your Kubernetes cluster altogether, run:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code&gt;$ &amp;lt;kubernetes&amp;gt;/cluster/kube-down.sh
-&lt;/code&gt;&lt;/pre&gt;
-
-</description>
-        <pubDate>Tue, 13 Jan 2015 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/kubernetes/2015/01/13/k8s1.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/kubernetes/2015/01/13/k8s1.html</guid>
-        
-        
-        <category>kubernetes</category>
         
       </item>
     
