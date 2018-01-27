@@ -3,10 +3,10 @@
   <channel>
     <title>Amy on GCP</title>
     <description></description>
-    <link>http://localhost:4000/</link>
-    <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 26 Jan 2018 16:52:45 -0800</pubDate>
-    <lastBuildDate>Fri, 26 Jan 2018 16:52:45 -0800</lastBuildDate>
+    <link>http://amygdala.github.io/</link>
+    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Fri, 26 Jan 2018 17:06:49 -0800</pubDate>
+    <lastBuildDate>Fri, 26 Jan 2018 17:06:49 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -348,8 +348,8 @@ You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&l
 
 </description>
         <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
-        <guid isPermaLink="true">http://localhost:4000/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        <link>http://amygdala.github.io/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
         <category>CMLE</category>
         
@@ -644,8 +644,8 @@ launch template-based pipelines.&lt;/p&gt;
 your own analytics — via App Engine apps or otherwise. We look forward to hearing more about what you build!&lt;/p&gt;
 </description>
         <pubDate>Tue, 24 Oct 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -844,8 +844,8 @@ We look forward to hearing more about what you build!&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1051,8 +1051,8 @@ flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the predi
 &lt;/ul&gt;
 </description>
         <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/02/03/transfer_learning.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/02/03/transfer_learning.html</guid>
+        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
         
         <category>machine_learning</category>
         
@@ -1157,8 +1157,8 @@ Or, you could include the wiki URLs in the results for any entities that have th
 
 </description>
         <pubDate>Sat, 14 Jan 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/01/14/nlapi.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/01/14/nlapi.html</guid>
+        <link>http://amygdala.github.io/ml/2017/01/14/nlapi.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/01/14/nlapi.html</guid>
         
         <category>machine_learning</category>
         
@@ -1211,8 +1211,8 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 22 Apr 2016 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/ml/2016/04/22/vision-api.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2016/04/22/vision-api.html</guid>
+        <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
         
         <category>Vision_API</category>
         
@@ -1237,8 +1237,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Mon, 15 Feb 2016 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/dataflow/2016/02/15/dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/2016/02/15/dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
         
         <category>Apache_Beam</category>
         
@@ -1269,8 +1269,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Wed, 20 May 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/gae/php/2015/05/20/gaephp.html</link>
-        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/05/20/gaephp.html</guid>
+        <link>http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</guid>
         
         <category>php</category>
         
@@ -1302,8 +1302,8 @@ Instead, it is designed to continously run a scalable data ingestion pipeline.&l
 
 </description>
         <pubDate>Wed, 11 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/kubernetes/2015/03/11/pubsub.html</link>
-        <guid isPermaLink="true">http://localhost:4000/kubernetes/2015/03/11/pubsub.html</guid>
+        <link>http://amygdala.github.io/kubernetes/2015/03/11/pubsub.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubernetes/2015/03/11/pubsub.html</guid>
         
         <category>kubernetes</category>
         
@@ -1336,8 +1336,8 @@ In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_ge
 
 </description>
         <pubDate>Mon, 09 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/gae/php/2015/03/09/gaephp.html</link>
-        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/03/09/gaephp.html</guid>
+        <link>http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/03/09/gaephp.html</guid>
         
         <category>php</category>
         
