@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Fri, 26 Jan 2018 17:13:48 -0800</pubDate>
-    <lastBuildDate>Fri, 26 Jan 2018 17:13:48 -0800</lastBuildDate>
+    <pubDate>Fri, 26 Jan 2018 17:29:58 -0800</pubDate>
+    <lastBuildDate>Fri, 26 Jan 2018 17:29:58 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -351,7 +351,9 @@ You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&l
         <link>http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
         <guid isPermaLink="true">http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
-        <category>CMLE</category>
+        <category>cmle</category>
+        
+        <category>cloud_ml</category>
         
         <category>tensorflow</category>
         
@@ -1058,7 +1060,7 @@ flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the predi
         
         <category>machine_learning</category>
         
-        <category>Cloud_ML</category>
+        <category>cloud_ml</category>
         
         
         <category>ML</category>
@@ -1166,7 +1168,7 @@ Or, you could include the wiki URLs in the results for any entities that have th
         
         <category>natural_language_processing</category>
         
-        <category>natural_langage_API</category>
+        <category>natural_langage_api</category>
         
         <category>kubernetes</category>
         
@@ -1216,7 +1218,7 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
         <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
         <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
         
-        <category>Vision_API</category>
+        <category>vision_api</category>
         
         <category>machine_learning</category>
         
@@ -1242,7 +1244,7 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
         <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
         <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
         
-        <category>Apache_Beam</category>
+        <category>apache_beam</category>
         
         <category>big_data</category>
         
