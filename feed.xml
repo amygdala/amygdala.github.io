@@ -5,15 +5,13 @@
     <description></description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 03 Sep 2018 15:33:32 -0700</pubDate>
-    <lastBuildDate>Mon, 03 Sep 2018 15:33:32 -0700</lastBuildDate>
+    <pubDate>Mon, 03 Sep 2018 15:40:07 -0700</pubDate>
+    <lastBuildDate>Mon, 03 Sep 2018 15:40:07 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
         <title>Kubeflow and Machine Learning Workflows</title>
-        <description>&lt;!--TOC--&gt;
-
-&lt;h2 id=&quot;introduction-machine-learning-workflows&quot;&gt;Introduction: Machine Learning Workflows&lt;/h2&gt;
+        <description>&lt;h2 id=&quot;introduction-machine-learning-workflows&quot;&gt;Introduction: Machine Learning Workflows&lt;/h2&gt;
 
 &lt;p&gt;Model construction and training is just a small part of what you need to pay attention to in order to support ML workflows. For example: porting your data to an accessible format and location; data cleaning and feature engineering; analyzing your trained models; managing model versioning; scalably serving your trained models and avoiding ‘training/serving skew; and many other considerations. This is particularly the case when the workflows need to be portable and consistently repeatable, and have many ‘moving parts’ that need to be integrated.&lt;/p&gt;
 
@@ -249,6 +247,8 @@ For this particular workflow, look for the services with prefix &lt;code&gt;prep
         <category>machine_learning</category>
         
         <category>kubeflow</category>
+        
+        <category>kubernetes</category>
         
         
         <category>ML</category>
