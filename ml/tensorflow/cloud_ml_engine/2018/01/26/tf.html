@@ -10,8 +10,8 @@
   <meta name="description" content="Introduction">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html">
-  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+  <link rel="canonical" href="http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://localhost:4000/feed.xml" />
 </head>
 
 
@@ -36,6 +36,8 @@
         
           
           <a class="page-link" href="/about/">About</a>
+          
+        
           
         
           
@@ -136,7 +138,7 @@ To see the specifics and work through the code yourself, visit the <a href="http
 <p>For this example, we’ll create an <a href="https://www.tensorflow.org/get_started/estimator">Estimator</a> object using a pre-made subclass, <a href="https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier"><code>DNNLinearCombinedClassifier</code></a>, which implements a <a href="https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html">“wide and deep”</a> model. Wide and deep models use a deep neural net (DNN) to learn high level abstractions about complex features or interactions between such features. These models then combine the outputs from the DNN with a <a href="https://en.wikipedia.org/wiki/Linear_regression">linear regression</a> performed on simpler features. This provides a balance between power and speed that is effective on many structured data problems.</p>
 
 <p>See the accompanying <a href="https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator">notebook</a> for the details of defining our Estimator, including specification of the expected format of the input data.
-The data is in csv format, and looks like this:</p>
+The data is in CSV format, and looks like this:</p>
 
 <pre><code>39, State-gov, 77516, Bachelors, 13, Never-married, Adm-clerical, Not-in-family, White, Male, 2174, 0, 40, United-States, &lt;=50K
 50, Self-emp-not-inc, 83311, Bachelors, 13, Married-civ-spouse, Exec-managerial, Husband, White, Male, 0, 0, 13, United-States, &lt;=50K
