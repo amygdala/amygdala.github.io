@@ -5,260 +5,9 @@
     <description></description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 03 Sep 2018 16:21:53 -0700</pubDate>
-    <lastBuildDate>Mon, 03 Sep 2018 16:21:53 -0700</lastBuildDate>
+    <pubDate>Wed, 05 Sep 2018 12:54:40 -0700</pubDate>
+    <lastBuildDate>Wed, 05 Sep 2018 12:54:40 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
-    
-      <item>
-        <title>Kubeflow and Machine Learning Workflows</title>
-        <description>&lt;h2 id=&quot;introduction-machine-learning-workflows&quot;&gt;Introduction: Machine Learning Workflows&lt;/h2&gt;
-
-&lt;p&gt;Model construction and training is just a small part of what you need to pay attention to in order to support ML workflows. For example: porting your data to an accessible format and location; data cleaning and feature engineering; analyzing your trained models; managing model versioning; scalably serving your trained models and avoiding ‘training/serving skew; and many other considerations. This is particularly the case when the workflows need to be portable and consistently repeatable, and have many ‘moving parts’ that need to be integrated.&lt;/p&gt;
-
-&lt;p&gt;Further, most of these activities reoccur across multiple workflows, perhaps just with different parameterizations. Often you’re running a set of experiments that need to be performed in an auditable and repeatable manner. 
-Sometimes part or all of an ML workflow needs to run on-prem, but in other contexts it may be more productive to use managed cloud services, which make it easy to distribute and scale out the workflow steps, and to run multiple experiments in parallel.&lt;/p&gt;
-
-&lt;!--[** consider annotating the argo workflow diagram to show managed vs 'on prem' variants? .. plus the worfklows should be shown up front here, maybe with slightly more readable names, then repeated below **]
---&gt;
-&lt;!--[** something re: ML Ops? re: reusability w.r.t building applications. + distribution and parallelization to speed things up **]
---&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/ml_workflow.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/ml_workflow.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Model training is just a small part of a typical ML workflow.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://www.kubeflow.org/&quot;&gt;&lt;strong&gt;Kubeflow&lt;/strong&gt;&lt;/a&gt; is an OSS &lt;a href=&quot;https://github.com/kubeflow/kubeflow&quot;&gt;&lt;strong&gt;Kubernetes&lt;/strong&gt;&lt;/a&gt;-native platform for developing, orchestrating, deploying, and running scalable and portable end-to-end ML workloads.  It helps support reproducibility and collaboration in ML workflow lifecycles, makes it easier to manage end-to-end orchestration of ML-oriented pipelines, and makes it straightforward to run your workflow in multiple or hybrid environments — swapping between on-premises and Cloud building blocks depending upon context — and to reuse building blocks across different workflows. Kubeflow also provides support for visualization and collaboration in your ML workflow.
-(You can find other Kubeflow examples &lt;a href=&quot;https://github.com/kubeflow/examples&quot;&gt;here&lt;/a&gt; as well).&lt;/p&gt;
-
-&lt;p&gt;In this article, we’ll describe how you can tackle ML workflow operations by using &lt;a href=&quot;https://www.kubeflow.org/&quot;&gt;Kubeflow&lt;/a&gt; in conjunction with some other services, and point to some &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;examples&lt;/a&gt; that you can try yourself.  The examples revolve around a &lt;a href=&quot;https://tensorflow.org&quot;&gt;TensorFlow&lt;/a&gt; ‘taxi fare tip prediction’ model, with data pulled from a &lt;a href=&quot;https://cloud.google.com/bigquery/public-data/chicago-taxi&quot;&gt;public BigQuery dataset of Chicago taxi trips&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;We’re running the examples on &lt;strong&gt;&lt;a href=&quot;https://cloud.google.com/kubernetes-engine/&quot;&gt;Google Kubernetes Engine&lt;/a&gt; (GKE)&lt;/strong&gt;.
-GKE allows easy integration of GCP services that are relevant for ML workflows, including &lt;a href=&quot;https://cloud.google.com/dataflow&quot;&gt;Dataflow&lt;/a&gt;, &lt;a href=&quot;https://cloud.google.com/bigquery&quot;&gt;BigQuery&lt;/a&gt;, and &lt;a href=&quot;https://cloud.google.com/ml-engine&quot;&gt;Cloud ML Engine&lt;/a&gt;.
-(If you need to keep your ML workflows on-premises, you may also be interested in &lt;a href=&quot;https://cloud.google.com/gke-on-prem/&quot;&gt;GKE On-Prem&lt;/a&gt;).&lt;/p&gt;
-
-&lt;p&gt;The &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;examples&lt;/a&gt; make use of &lt;strong&gt;&lt;a href=&quot;https://github.com/tensorflow/transform&quot;&gt;TensorFlow Transform&lt;/a&gt; (TFT)&lt;/strong&gt; for data preprocessing and to avoid training/serving skew; Kubeflow’s &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/tftraining/&quot;&gt;TFJob&lt;/a&gt; &lt;a href=&quot;https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/&quot;&gt;CRD&lt;/a&gt; for supporting distributed training; and &lt;strong&gt;&lt;a href=&quot;https://github.com/tensorflow/model-analysis/&quot;&gt;TensorFlow Model Analysis&lt;/a&gt; (TFMA)&lt;/strong&gt; for analysis of learned models, in conjunction with Kubeflow’s &lt;a href=&quot;https://github.com/jupyterhub/jupyterhub&quot;&gt;JupyterHub&lt;/a&gt; notebooks installation.&lt;/p&gt;
-
-&lt;p&gt;The workflows also include deployment of the trained models to both
-&lt;strong&gt;&lt;a href=&quot;https://cloud.google.com/ml-engine/docs/tensorflow/prediction-overview&quot;&gt;Cloud ML Engine Online Prediction&lt;/a&gt;&lt;/strong&gt;, 
-and to &lt;strong&gt;&lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow Serving&lt;/a&gt;&lt;/strong&gt; via Kubeflow.&lt;/p&gt;
-
-&lt;p&gt;We’ll describe all of these components in more detail below, then show how we can &lt;em&gt;compose&lt;/em&gt; and reuse these building blocks to create scalable ML workflows that exhibit consistency, reproducibility, and portability.&lt;/p&gt;
-
-&lt;h2 id=&quot;kubeflow-components&quot;&gt;Kubeflow components&lt;/h2&gt;
-
-&lt;p&gt;The &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;examples&lt;/a&gt; use &lt;a href=&quot;https://www.kubeflow.org/&quot;&gt;Kubeflow&lt;/a&gt; with &lt;a href=&quot;https://github.com/argoproj/argo&quot;&gt;Argo&lt;/a&gt; (a container-native workflow framework for Kubernetes) in order to easily support KF-based ML workflows. These examples highlight how Kubeflow can help support portability, composability, scalability, and reproducibility in your ML lifecycle; and make it easier to support &lt;a href=&quot;https://cloud.google.com/blog/products/gcp/simplifying-machine-learning-on-open-hybrid-clouds-with-kubeflow&quot;&gt;hybrid&lt;/a&gt; ML solutions.&lt;/p&gt;
-
-&lt;p&gt;Kubeflow’s core components include:&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;support for distributed &lt;a href=&quot;https://tensorflow.org&quot;&gt;TensorFlow&lt;/a&gt; training  via the &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/tftraining/&quot;&gt;TFJob&lt;/a&gt; &lt;a href=&quot;https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/&quot;&gt;CRD&lt;/a&gt;;&lt;/li&gt;
-  &lt;li&gt;serving trained models using &lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow serving&lt;/a&gt;;&lt;/li&gt;
-  &lt;li&gt;and a &lt;a href=&quot;https://github.com/jupyterhub/jupyterhub&quot;&gt;JupyterHub&lt;/a&gt; installation with many commonly-required libraries and widgets included in the notebook installation, included those needed for &lt;a href=&quot;https://github.com/tensorflow/model-analysis/&quot;&gt;TensorFlow Model Analysis&lt;/a&gt; (TFMA).&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/kf_in_the_box.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/kf_in_the_box.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Kubeflow's current core components focus on the activities highlighted in red.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;We use all of these in our examples, and describe them in more detail below.&lt;br /&gt;
-(Kubeflow also includes support for other components not used in our examples).&lt;/p&gt;
-
-&lt;h2 id=&quot;tfx-building-blocks&quot;&gt;TFX building blocks&lt;/h2&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://www.tensorflow.org/tfx/&quot;&gt;TensorFlow Extended (TFX)&lt;/a&gt; is a TensorFlow-based general-purpose machine learning platform implemented at Google.
-TFX grew out of an &lt;a href=&quot;&quot;&gt;internal project&lt;/a&gt;, and you can find more of an overview &lt;a href=&quot;https://dl.acm.org/citation.cfm?id=3098021&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;TFX components are in the process of being open-sourced, and Kubeflow and our example ML workflows use three of them as building blocks: &lt;a href=&quot;https://github.com/tensorflow/transform&quot;&gt;TensorFlow Transform&lt;/a&gt;, &lt;a href=&quot;https://github.com/tensorflow/model-analysis/&quot;&gt;TensorFlow Model Analysis&lt;/a&gt;, and &lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow serving&lt;/a&gt;.&lt;/p&gt;
-
-&lt;h3 id=&quot;tensorflow-transform&quot;&gt;TensorFlow Transform&lt;/h3&gt;
-
-&lt;p&gt;&lt;strong&gt;TensorFlow Transform (TFT)&lt;/strong&gt; is a library for preprocessing data with TensorFlow. &lt;code&gt;tf.Transform&lt;/code&gt; is useful for data that requires a full pass of the dataset, such as normalizing an input value by mean and standard deviation; converting a vocabulary to integers by looking at all input examples for values; or categorizing inputs into buckets based on the observed data distribution.&lt;/p&gt;
-
-&lt;p&gt;Importantly, its use can also prevent &lt;strong&gt;training-serving skew&lt;/strong&gt;, which is a problem that occurs when the feature pre-processing done for training data is not the same as that done for new data prior to prediction. It is easy for this inconsistency to arise when training and serving are managed by different teams, often using different machines or clusters.&lt;/p&gt;
-
-&lt;p&gt;However, by using TFT for pre-processing, the output of &lt;code&gt;tf.Transform&lt;/code&gt; is exported as a &lt;em&gt;TensorFlow graph&lt;/em&gt; to use for both training and serving, and this TFT graph is exported as part of the trained model graph. This prevents training-serving skew, since the same transformations are applied in both stages. The &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;example workflows&lt;/a&gt; &lt;strong&gt;use TFT to support pre-preprocessing&lt;/strong&gt;, and this means that after the trained models are deployed for serving and we send a prediction request, the prediction input data is being processed in exactly the same way as was done for training, without the need for any client-side preprocessing framework.&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://beam.apache.org/&quot;&gt;&lt;strong&gt;Apache Beam&lt;/strong&gt;&lt;/a&gt; is an OSS framework that lets you implement batch and streaming data processing jobs that run on any execution engine, via a unified programming model for both batch and streaming use cases.
-Beam is required to run distributed TFT analysis: essentially, you build Beam pipelines that describe the TFT transformations you want to perform. 
-By default, Apache Beam runs in local mode, but can also run in distributed mode using &lt;a href=&quot;https://cloud.google.com/dataflow&quot;&gt;&lt;strong&gt;Google Cloud Dataflow&lt;/strong&gt;&lt;/a&gt;, Google Cloud’s managed service for running Beam pipelines.  The workflows in &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;the examples&lt;/a&gt; use the Beam local runner by default, but can be configured to transparently use Dataflow instead. (For these examples, the default datasets are small, so running locally works fine; but for processing larger datasets, Dataflow lets you automatically scale out your processing across multiple workers).&lt;/p&gt;
-
-&lt;h3 id=&quot;tensorflow-model-analysis-and-jupyterhub-on-kubeflow&quot;&gt;TensorFlow Model Analysis (and JupyterHub on Kubeflow)&lt;/h3&gt;
-
-&lt;p&gt;The second TFX component used in the example workflows is &lt;a href=&quot;https://github.com/tensorflow/model-analysis/&quot;&gt;TensorFlow Model Analysis&lt;/a&gt; (TFMA).&lt;/p&gt;
-
-&lt;p&gt;TFMA is a library for evaluating TensorFlow models. It allows users to evaluate their models on large amounts of data in a distributed manner, using the same metrics defined in their trainer. These metrics can be computed over different slices of data and visualized in Jupyter notebooks.&lt;/p&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://raw.githubusercontent.com/tensorflow/model-analysis/master/g3doc/images/tfma-slicing-metrics-browser.gif&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://raw.githubusercontent.com/tensorflow/model-analysis/master/g3doc/images/tfma-slicing-metrics-browser.gif&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Visual analysis of TFMA slice results.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;You can compute slices you know you’re going to be interested in looking at as part of your main ML workflow, so that the results are ready to examine in a notebook environment.  That’s what we do in these example workflows.
-Kubflow includes a &lt;a href=&quot;https://github.com/jupyterhub/jupyterhub&quot;&gt;JupyterHub&lt;/a&gt; installation with the necessary TFMA libraries and widgets installed, and this makes it very straightforward to explore the analysis results in a Kubeflow-supported Jupyter notebook. (Tensorflow Transform libraries are also installed, along with many others).&lt;/p&gt;
-
-&lt;p&gt;As with TFT, Apache Beam is required to run distributed analysis; and similarly to TFT, the example workflows support use of the Beam local runner, and can also be run on Dataflow. For the small example datasets, running Beam locally works fine.&lt;/p&gt;
-
-&lt;h3 id=&quot;tensorflow-serving&quot;&gt;TensorFlow Serving&lt;/h3&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow Serving&lt;/a&gt; (often abbreviated as “TF-Serving”) is another TFX component: an OSS library for serving machine learning models. It deals with the &lt;em&gt;inference&lt;/em&gt; aspect of machine learning, managing and serving trained models, and can help if you want to serve your TensorFlow models on-prem.  TensorFlow Serving is &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/tfserving/&quot;&gt;a Kubeflow core component&lt;/a&gt;, which means that it is installed by default when you deploy Kubeflow. &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/samples/kubeflow-tf/README.md#example-workflow-1&quot;&gt;One of the examples&lt;/a&gt; includes the deployment of trained models to TF-serving, and the example repo includes a client script that can be used to make requests to the deployed TF-serving models.&lt;/p&gt;
-
-&lt;h2 id=&quot;cloud-ml-engine-online-prediction&quot;&gt;Cloud ML Engine Online Prediction&lt;/h2&gt;
-
-&lt;p&gt;&lt;strong&gt;&lt;a href=&quot;https://cloud.google.com/ml-engine/docs/&quot;&gt;Google Cloud ML Engine&lt;/a&gt;&lt;/strong&gt; is a managed service for training and serving ML models: not only TensorFlow, but scikit-learn and XGBoost as well. 
-Cloud ML Engine makes it easy to do distributed training and scalable serving, and provides monitoring, logging, and model and model version management. Cloud ML Engine services can be used as key building blocks for many ML workflows.&lt;/p&gt;
-
-&lt;p&gt;For the examples described in this post, since we’re highlighting Kubeflow’s &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/tftraining/&quot;&gt;TFJob&lt;/a&gt;, we’re not using Cloud ML Engine for training (though we could).
-However, we’re deploying the trained TensorFlow models to &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/tensorflow/online-predict&quot;&gt;Cloud ML Engine Online Prediction&lt;/a&gt;, which provides scalable serving — say, if you’re accessing a model via an app you built, and the app becomes popular, you have no worries about your model serving infrastructure falling over when it gets a barrage of requests.&lt;/p&gt;
-
-&lt;p&gt;The workflow deploys the trained models as &lt;em&gt;versions&lt;/em&gt; of a specific model, in this case named &lt;code&gt;taxifare&lt;/code&gt;.
-Once the model versions are deployed, we can make prediction requests against a specific version.  The &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Google Cloud Platform Console&lt;/a&gt; lets you browse through the deployed versions of your different models, set one to be the default, and get information about when each was deployed and last accessed. (In the screenshot below, the rather goofy model version names were generated automatically by our example ML workflow code).&lt;/p&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/cmle_model_versions_.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/cmle_model_versions_.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Listing versions of a model named 'taxifare' deployed to the Cloud ML Engine Online Prediction service.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;As mentioned above, our workflows use TensorFlow Model Analysis to analyze and compare the learned models, and we can use that information to select the best version as the default — the version served when you make an API request using just the &lt;code&gt;taxifare&lt;/code&gt; model name. You can set the default version from the GCP Console, or via the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;gcloud&lt;/a&gt; tool from the command line.&lt;/p&gt;
-
-&lt;h2 id=&quot;building-and-running-ml-workflows&quot;&gt;Building and Running ML workflows&lt;/h2&gt;
-
-&lt;p&gt;The building blocks described above can be composed to support common and useful ML workflow patterns. They let us build pipelines that support data ingestion, feature pre-processing, distributed training, evaluation, and serving. Our &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo&quot;&gt;examples&lt;/a&gt; show variants on this basic workflow, and illustrate how easy it is to create these variants via reusable building blocks.&lt;/p&gt;
-
-&lt;p&gt;We’re using &lt;a href=&quot;https://github.com/argoproj/argo&quot;&gt;Argo&lt;/a&gt; (a container-native workflow framework for Kubernetes) for workflow support, and so under the hood, the workflow component definitions use &lt;a href=&quot;https://www.docker.com/&quot;&gt;Docker&lt;/a&gt; images with parameterizable entry points. This ensures that the workflow components are always &lt;strong&gt;modular&lt;/strong&gt; and &lt;strong&gt;portable&lt;/strong&gt;.
-Many of the workflow components access core Kubeflow components, and some make API calls to Google Cloud Platform managed services (like Cloud ML Engine).&lt;/p&gt;
-
-&lt;p&gt;Below, we describe in more detail two example ML workflows built from these components.&lt;/p&gt;
-
-&lt;h3 id=&quot;running-the-example-workflows&quot;&gt;Running the example workflows&lt;/h3&gt;
-
-&lt;p&gt;To run the following workflows yourself, see the &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/README.md&quot;&gt;README&lt;/a&gt;, which walks you through the necessary installation steps and describes the code in more detail.&lt;/p&gt;
-
-&lt;h3 id=&quot;example-workflow-1&quot;&gt;Example Workflow 1&lt;/h3&gt;
-
-&lt;p&gt;Our &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/samples/kubeflow-tf/README.md#example-workflow-1&quot;&gt;first example workflow&lt;/a&gt; illustrates how you can use an ML workflow to experiment with
-&lt;a href=&quot;https://github.com/tensorflow/transform&quot;&gt;TFT&lt;/a&gt;-based feature engineering, and how you can support a hybrid ML flow that serves your trained model from both on-prem and cloud endpoints.&lt;/p&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/argo_workflow1.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/argo_workflow1.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;A rendering of a workflow for TFT-based feature engineering experimentation, via the Argo UI.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;The workflow runs two paths concurrently, using a different TFT &lt;em&gt;preprocessing function&lt;/em&gt; for each path (&lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/components/dataflow/tft/preprocessing.py&quot;&gt;&lt;code&gt;preprocessing.py&lt;/code&gt;&lt;/a&gt; vs &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/components/dataflow/tft/preprocessing2.py&quot;&gt;&lt;code&gt;preprocessing2.py&lt;/code&gt;&lt;/a&gt;). By designing the TFT workflow component to take the preprocessing function definition as an argument, the component is easily reusable across workflows.&lt;/p&gt;
-
-&lt;p&gt;Then each model variant is trained, using Kubeflow’s &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/tftraining/&quot;&gt;TFJob&lt;/a&gt; &lt;a href=&quot;https://kubernetes.io/docs/concepts/extend-kubernetes/api-extension/custom-resources/&quot;&gt;CRD&lt;/a&gt;.  For example purposes, &lt;strong&gt;distributed training&lt;/strong&gt; is used for one path, leveraging &lt;code&gt;TFJob&lt;/code&gt;’s easy support for distribution, and single-node training is used for the other.  This distinction is made by specifying the number of &lt;em&gt;workers&lt;/em&gt; and &lt;em&gt;parameter servers&lt;/em&gt; to use for the training job.&lt;/p&gt;
-
-&lt;p&gt;Then, the workflow runs runs TFMA analysis on both trained models, so that they can be evaluated and compared, and at the same time deploys the trained models to &lt;em&gt;both&lt;/em&gt; Cloud ML Engine and TF-Serving. With the use of TFT, the deployed models include the TFT-generated preprocessing graphs, so we don’t have to worry about training/serving skew; and by using modular building blocks, it becomes much easier to build such experiments.&lt;/p&gt;
-
-&lt;p&gt;This example shows how you can support &lt;strong&gt;hybrid workflows&lt;/strong&gt;, where, say, your training runs on-prem (maybe you have some sensitive training data), and then you deploy to both your on-prem TensorFlow Serving cluster and Cloud ML Engine.
-It also shows how easy it is to &lt;strong&gt;scale out a Kubeflow TensorFlow training job&lt;/strong&gt;, going from a single-node to a large distributed cluster, by just changing the job parameters.&lt;/p&gt;
-
-&lt;h4 id=&quot;use-kubeflow-to-visualize-model-analysis-results-in-a-jupyter-notebook&quot;&gt;Use Kubeflow to visualize model analysis results in a Jupyter notebook&lt;/h4&gt;
-
-&lt;p&gt;In both of our example workflows, we run TensorFlow Model Analysis (TFMA) on the trained models, using a provided &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/components/dataflow/tfma/model_analysis-taxi.py#L45&quot;&gt;specification of how to slice the data&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;At any time after this workflow step has been run, the TFMA results can be visualized via a Jupyter notebook, making it easy to assess model quality or compare models.&lt;/p&gt;
-
-&lt;p&gt;Kubeflow’s &lt;a href=&quot;https://github.com/jupyterhub/jupyterhub&quot;&gt;JupyterHub&lt;/a&gt; installation makes this easy to do, via a &lt;code&gt;port-forward&lt;/code&gt; to your Kubernetes Engine cluster. The necessary libraries and visualization widgets are already installed.
-If you’re playing along, see the &lt;em&gt;“To connect to your Jupyter Notebook locally”&lt;/em&gt; section in this &lt;a href=&quot;https://www.kubeflow.org/docs/guides/components/jupyter/&quot;&gt;Kubeflow guide&lt;/a&gt; for more info.
-Then load and run the &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/components/dataflow/tfma/tfma_expers.ipynb&quot;&gt;&lt;code&gt;tfma_expers.ipynb&lt;/code&gt;&lt;/a&gt; notebook to explore the results of the TFMA analysis.&lt;/p&gt;
-
-&lt;h3 id=&quot;example-workflow-2&quot;&gt;Example Workflow 2&lt;/h3&gt;
-
-&lt;p&gt;The &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/samples/kubeflow-tf/README.md#example-workflow-2&quot;&gt;second example workflow&lt;/a&gt; shows how you might use TFMA to investigate relative accuracies of models trained on different datasets, evaluating against fresh data. As part of the preprocessing step, it pulls data directly from the source &lt;a href=&quot;https://cloud.google.com/bigquery/public-data/chicago-taxi&quot;&gt;BigQuery Chicago taxi dataset&lt;/a&gt;, with differing min and max time boundaries, effectively training on ‘recent’ data vs a batch that includes older data.  Then, it runs TFMA analysis on both learned models, using the newest data for evaluation.  It also evaluates the ‘recent’ data against an older model trained on older data.&lt;/p&gt;
-
-&lt;p&gt;As with &lt;code&gt;Workflow 1&lt;/code&gt; above, the trained models are deployed to Cloud ML Engine, where the most accurate ones can be selected to use for prediction.&lt;/p&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/argo_workflow2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-argo/argo_workflow2.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Comparing models trained on datasets that cover differing time intervals.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;So, this example shows how you can define workflows to support consistent model regeneration and re-evaluation over sliding time windows of data, to determine whether the characteristics of new prediction data have changed.&lt;br /&gt;
-(While not shown as part of this example, a similar workflow could also be used to support incremental training of an existing model on successive new datasets, and comparison of that model with new models trained ‘from scratch’).&lt;/p&gt;
-
-&lt;h3 id=&quot;use-your-models-for-prediction-with-cloud-ml-engine-online-prediction&quot;&gt;Use your models for prediction with Cloud ML Engine Online Prediction&lt;/h3&gt;
-
-&lt;p&gt;As part of both workflows, the trained models were deployed to Cloud ML Engine Online Prediction. The model name
-is &lt;code&gt;taxifare&lt;/code&gt;, and the version names are derived from the workflow names.&lt;/p&gt;
-
-&lt;p&gt;You can view the deployed versions of the &lt;code&gt;taxifare&lt;/code&gt; model in the &lt;a href=&quot;https://console.cloud.google.com/mlengine/models&quot;&gt;GCP Console&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;If you’re playing along, it is easy to &lt;strong&gt;make a prediction using one of the deployed Cloud ML Engine model versions&lt;/strong&gt;.  Change to the &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/components/cmle&quot;&gt;&lt;code&gt;components/cmle&lt;/code&gt;&lt;/a&gt; directory of your repo checkout to find the &lt;code&gt;temp_input2.json&lt;/code&gt; example input, and run the following command, replacing &lt;code&gt;&amp;lt;YOUR_PROJECT_NAME&amp;gt;&lt;/code&gt; and &lt;code&gt;&amp;lt;MODEL_VERSION_NAME&amp;gt;&lt;/code&gt;.&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine predict --model=taxifare --json-instances=temp_input2.json --project=&amp;lt;YOUR_PROJECT_NAME&amp;gt; \
- --version=&amp;lt;MODEL_VERSION_NAME&amp;gt;
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;(This command requires that you have the &lt;a href=&quot;https://cloud.google.com/sdk/install&quot;&gt;&lt;code&gt;gcloud&lt;/code&gt; sdk installed&lt;/a&gt;; or as described in the &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo/README.md&quot;&gt;README&lt;/a&gt;, you can use your project’s &lt;a href=&quot;https://cloud.google.com/shell/docs/&quot;&gt;Cloud Shell&lt;/a&gt; instead).&lt;br /&gt;
-You can set any of your model versions to be the &lt;em&gt;default&lt;/em&gt;. For the default model, the request does not need to include the &lt;code&gt;--version&lt;/code&gt; arg.&lt;/p&gt;
-
-&lt;h3 id=&quot;make-predictions-using-tf-serving-endpoints&quot;&gt;Make predictions using TF-Serving endpoints&lt;/h3&gt;
-
-&lt;p&gt;The first example workflow deployed the trained models not only to Cloud ML Engine, but also to &lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow Serving&lt;/a&gt;, which is part  of the Kubeflow installation.&lt;/p&gt;
-
-&lt;p&gt;To make it easy to demo, the TF-serving deployments use a Kubernetes service of type &lt;code&gt;LoadBalancer&lt;/code&gt;, which creates an endpoint with an external IP. (For a production system, you’d probably want to use something like &lt;a href=&quot;https://cloud.google.com/iap/&quot;&gt;Cloud Identity-Aware Proxy&lt;/a&gt;).&lt;/p&gt;
-
-&lt;p&gt;If you’re playing along, you can view the TF-Serving endpoint services created by the workflow by running:&lt;/p&gt;
-
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;kubectl get services
-&lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;from the command line.
-For this particular workflow, look for the services with prefix &lt;code&gt;preproc-train-deploy2-analyze&lt;/code&gt; (the workflow prefix), and note their names and external IP addresses.&lt;/p&gt;
-
-&lt;p&gt;It is easy to &lt;strong&gt;make requests to the TensorFlow Serving endpoints&lt;/strong&gt; using a client script — find an example script and more detail in &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/kubeflow-argo#access-the-tf-serving-endpoints-for-your-learned-model&quot;&gt;the README&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;Should you want to scale a TF-Serving endpoint to handle a large number of requests, this is easy to do via Kubernetes’ underlying capabilities: scale the &lt;a href=&quot;https://kubernetes.io/docs/concepts/workloads/controllers/deployment/&quot;&gt;Deployment&lt;/a&gt; backing the endpoint service.&lt;/p&gt;
-
-&lt;h2 id=&quot;learn-more-and-join-the-kubeflow-community&quot;&gt;Learn more, and join the Kubeflow community&lt;/h2&gt;
-
-&lt;p&gt;We hope these examples encouraged you to &lt;a href=&quot;https://github.com/kubeflow/kubeflow/releases&quot;&gt;download&lt;/a&gt; and try Kubeflow yourself (please submit bugs and tell us what features you’d like to see!), and even become a contributor.&lt;/p&gt;
-
-&lt;p&gt;Here are some resources for learning more and getting help:&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;The &lt;a href=&quot;https://join.slack.com/t/kubeflow/shared_invite/enQtMjgyMzMxNDgyMTQ5LWUwMTIxNmZlZTk2NGU0MmFiNDE4YWJiMzFiOGNkZGZjZmRlNTExNmUwMmQ2NzMwYzk5YzQxOWQyODBlZGY2OTg&quot;&gt;Kubeflow Slack channel&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;https://github.com/kubeflow/examples&quot;&gt;More Kubeflow examples&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;The &lt;a href=&quot;https://groups.google.com/forum/#!forum/kubeflow-discuss&quot;&gt;Kubeflow-discuss email list&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;The &lt;a href=&quot;http://twitter.com/kubeflow&quot;&gt;Kubeflow Twitter account&lt;/a&gt;&lt;/li&gt;
-  &lt;li&gt;Our &lt;a href=&quot;https://github.com/kubeflow/community&quot;&gt;weekly community meeting&lt;/a&gt;&lt;/li&gt;
-&lt;/ul&gt;
-</description>
-        <pubDate>Mon, 03 Sep 2018 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/ml/kubeflow/2018/09/03/kf.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/kubeflow/2018/09/03/kf.html</guid>
-        
-        <category>cmle</category>
-        
-        <category>cloud_ml</category>
-        
-        <category>tensorflow</category>
-        
-        <category>machine_learning</category>
-        
-        <category>kubeflow</category>
-        
-        <category>kubernetes</category>
-        
-        
-        <category>ML</category>
-        
-        <category>Kubeflow</category>
-        
-      </item>
     
       <item>
         <title>Easy distributed training with TensorFlow using tf.estimator.train_and_evaluate and Cloud ML Engine</title>
@@ -1568,6 +1317,38 @@ Instead, it is designed to continously run a scalable data ingestion pipeline.&l
         
         
         <category>kubernetes</category>
+        
+      </item>
+    
+      <item>
+        <title>Updates to the Google App Engine PHP Runtime</title>
+        <description>&lt;p&gt;The &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;1.9.18 Google App Engine release&lt;/a&gt; has added new capabilities to the &lt;a href=&quot;https://cloud.google.com/appengine/docs/php&quot;&gt;App Engine PHP runtime&lt;/a&gt;. 
+It’s now possible to &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Selecting_the_PHP_runtime&quot;&gt;select PHP 5.5&lt;/a&gt; as your runtime, and a number of useful new features are supported if you do so.&lt;/p&gt;
+
+&lt;p&gt;The &lt;strong&gt;cURL&lt;/strong&gt; extension is now &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Enabled_extensions&quot;&gt;supported&lt;/a&gt;.
+We’ve also provided a &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/config/php_ini#GAE_directives&quot;&gt;cURL implementation using the standard HTTP streams API&lt;/a&gt; for apps that do not need the complete cURL extension.
+The &lt;strong&gt;ImageMagick&lt;/strong&gt; extension is now supported for PHP 5.5 apps as well.&lt;/p&gt;
+
+&lt;p&gt;We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
+In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code&gt;tmpfile()&lt;/code&gt; and &lt;code&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The PHP 5.5. runtime also gives you the ability to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/&quot;&gt;&lt;strong&gt;upload files directly to your application&lt;/strong&gt;&lt;/a&gt;, without the need to upload the files to &lt;a href=&quot;https://cloud.google.com/storage/docs&quot;&gt;Google Cloud Storage&lt;/a&gt; first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.&lt;/p&gt;
+
+&lt;p&gt;See the linked-to posts, from the unoffical “Tips and Tricks for PHP on Google App Engine” &lt;a href=&quot;https://gae-php-tips.appspot.com&quot;&gt;blog&lt;/a&gt;, for more detail, and the App Engine &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;release notes&lt;/a&gt; for more detail on what has changed.&lt;/p&gt;
+
+</description>
+        <pubDate>Mon, 09 Mar 2015 00:00:00 -0700</pubDate>
+        <link>http://localhost:4000/gae/php/2015/03/09/gaephp.html</link>
+        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/03/09/gaephp.html</guid>
+        
+        <category>php</category>
+        
+        <category>gae</category>
+        
+        
+        <category>gae</category>
+        
+        <category>php</category>
         
       </item>
     
