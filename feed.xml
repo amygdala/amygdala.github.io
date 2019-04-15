@@ -5,9 +5,53 @@
     <description></description>
     <link>http://localhost:4000/</link>
     <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 05 Sep 2018 12:54:40 -0700</pubDate>
-    <lastBuildDate>Wed, 05 Sep 2018 12:54:40 -0700</lastBuildDate>
+    <pubDate>Mon, 15 Apr 2019 13:41:39 -0700</pubDate>
+    <lastBuildDate>Mon, 15 Apr 2019 13:41:39 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Cloud Run, the Google Cloud Vision API, and 'Twilio-vision'</title>
+        <description>&lt;p&gt;About three years ago, I published a &lt;a href=&quot;http://amygdala.github.io/ml/2016/04/22/vision-api.html&quot;&gt;blog post&lt;/a&gt; describing how to build a Kubernetes-based app that let you text images to a &lt;a href=&quot;https://www.twilio.com&quot;&gt;Twilio&lt;/a&gt; phone number (once set up), and get a text back with information about how the
+&lt;a href=&quot;https://cloud.google.com/vision/docs/&quot;&gt;Cloud Vision API&lt;/a&gt; labeled the image.
+(The example code referenced in that earlier post is obsolete, due to API changes.)&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/doofball_doghouse.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/doofball_doghouse.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+
+&lt;p&gt;This little app is a perfect use case for the newly-announced &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;&lt;strong&gt;Cloud Run&lt;/strong&gt;&lt;/a&gt; service.&lt;/p&gt;
+
+&lt;p&gt;Cloud Run is a managed compute platform that enables you to run stateless containers that are invocable via HTTP requests. Cloud Run is serverless: it abstracts away all infrastructure management. It is built from &lt;a href=&quot;https://cloud.google.com/knative/&quot;&gt;Knative&lt;/a&gt;, letting you choose to run your containers either fully managed with Cloud Run, or in your Google Kubernetes Engine cluster with &lt;a href=&quot;https://cloud.google.com/run/docs/quickstarts/prebuilt-deploy-gke&quot;&gt;Cloud Run on GKE&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;A Cloud Run app will scale to zero instances when it’s not being used, and will scale up transparently when needed, with no intervention required; it’s fully managed. You pay only when your app is processing a request, in 100ms increments. It supports any app that can be packaged into a Docker image for Linux.&lt;/p&gt;
+
+&lt;p&gt;We can use the same Docker image as used for the Kubernetes app &lt;em&gt;Deployment&lt;/em&gt;, and deploy it to Cloud Run instead.  The new code is here (updated from the previous version to reflect API changes): &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision&quot;&gt;https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;The &lt;code&gt;yaml&lt;/code&gt; file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta run deploy --image gcr.io/&amp;lt;your_project&amp;gt;/twilio-vision:v1 --update-env-vars MESSAGE_BLURB=&quot;Courtesy of the Google Cloud Vision API...&quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Give it a try by texting an image to: &lt;strong&gt;(785) 336-5113&lt;/strong&gt;.  (The texted images are not retained by Google Cloud Platform, but are stored temporarily with Twilio).&lt;/p&gt;
+
+&lt;p&gt;See the example’s &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/cloud_run/twilio_vision/README.md&quot;&gt;README&lt;/a&gt; for more information on setting up such an app for yourself.&lt;/p&gt;
+
+&lt;p&gt;Thanks to &lt;strong&gt;Julia Ferraioli&lt;/strong&gt; for the &lt;a href=&quot;https://www.juliaferraioli.com/blog/2016/02/exploring-world-using-vision-twilio/&quot;&gt;original version&lt;/a&gt; of this app.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
+</description>
+        <pubDate>Mon, 15 Apr 2019 00:00:00 -0700</pubDate>
+        <link>http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</guid>
+        
+        <category>cloud_ml</category>
+        
+        <category>cloud_run</category>
+        
+        
+        <category>ML</category>
+        
+        <category>Cloud Run</category>
+        
+      </item>
     
       <item>
         <title>Easy distributed training with TensorFlow using tf.estimator.train_and_evaluate and Cloud ML Engine</title>
@@ -1317,38 +1361,6 @@ Instead, it is designed to continously run a scalable data ingestion pipeline.&l
         
         
         <category>kubernetes</category>
-        
-      </item>
-    
-      <item>
-        <title>Updates to the Google App Engine PHP Runtime</title>
-        <description>&lt;p&gt;The &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;1.9.18 Google App Engine release&lt;/a&gt; has added new capabilities to the &lt;a href=&quot;https://cloud.google.com/appengine/docs/php&quot;&gt;App Engine PHP runtime&lt;/a&gt;. 
-It’s now possible to &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Selecting_the_PHP_runtime&quot;&gt;select PHP 5.5&lt;/a&gt; as your runtime, and a number of useful new features are supported if you do so.&lt;/p&gt;
-
-&lt;p&gt;The &lt;strong&gt;cURL&lt;/strong&gt; extension is now &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/#PHP_Enabled_extensions&quot;&gt;supported&lt;/a&gt;.
-We’ve also provided a &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/config/php_ini#GAE_directives&quot;&gt;cURL implementation using the standard HTTP streams API&lt;/a&gt; for apps that do not need the complete cURL extension.
-The &lt;strong&gt;ImageMagick&lt;/strong&gt; extension is now supported for PHP 5.5 apps as well.&lt;/p&gt;
-
-&lt;p&gt;We’ve added an in memory virtual filesystem that makes it possible to create temporary files.
-In the new PHP 5.5 runtime, you can now use the &lt;strong&gt;&lt;code&gt;sys_get_temp_dir()&lt;/code&gt;, &lt;code&gt;tmpfile()&lt;/code&gt; and &lt;code&gt;tempnam()&lt;/code&gt;&lt;/strong&gt; functions to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/03/file-system-changes-in-app-engine-1-9-18/&quot;&gt;create temporary files&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;The PHP 5.5. runtime also gives you the ability to &lt;a href=&quot;https://gae-php-tips.appspot.com/2015/03/09/direct-file-uploads-for-php-5-5/&quot;&gt;&lt;strong&gt;upload files directly to your application&lt;/strong&gt;&lt;/a&gt;, without the need to upload the files to &lt;a href=&quot;https://cloud.google.com/storage/docs&quot;&gt;Google Cloud Storage&lt;/a&gt; first. Direct uploads leverages the same in-memory virtual filesystem that is used to provide temporary filesystem support. Direct uploads are only available with the PHP 5.5 runtime, and are  limited to a maximum combined size of 32MB, which is the incoming request size limit.&lt;/p&gt;
-
-&lt;p&gt;See the linked-to posts, from the unoffical “Tips and Tricks for PHP on Google App Engine” &lt;a href=&quot;https://gae-php-tips.appspot.com&quot;&gt;blog&lt;/a&gt;, for more detail, and the App Engine &lt;a href=&quot;https://code.google.com/p/googleappengine/wiki/SdkReleaseNotes&quot;&gt;release notes&lt;/a&gt; for more detail on what has changed.&lt;/p&gt;
-
-</description>
-        <pubDate>Mon, 09 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/gae/php/2015/03/09/gaephp.html</link>
-        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/03/09/gaephp.html</guid>
-        
-        <category>php</category>
-        
-        <category>gae</category>
-        
-        
-        <category>gae</category>
-        
-        <category>php</category>
         
       </item>
     

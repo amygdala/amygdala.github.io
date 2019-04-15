@@ -6,11 +6,11 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Amy on GCP</title>
-  <meta name="description" content="">
+  <title>Cloud Run, the Google Cloud Vision API, and 'Twilio-vision'</title>
+  <meta name="description" content="About three years ago, I published a blog post describing how to build a Kubernetes-based app that let you text images to a Twilio phone number (once set up)...">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://localhost:4000/tag/cmle/">
+  <link rel="canonical" href="http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html">
   <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://localhost:4000/feed.xml" />
 </head>
 
@@ -92,16 +92,52 @@
 
     <div class="page-content">
       <div class="wrapper">
-        <h2>cmle</h2>
-<ul>
+        <div class="post">
 
-  <li><a href="/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html">Easy distributed training with TensorFlow using tf.estimator.train_and_evaluate and Cloud ML Engine</a> (26 Jan 2018 )</li>
+  <header class="post-header">
+    <h1 class="post-title">Cloud Run, the Google Cloud Vision API, and 'Twilio-vision'</h1>
+    <p class="post-meta">Apr 15, 2019</p>
+  </header>
 
+  <article class="post-content">
+    <p>About three years ago, I published a <a href="http://amygdala.github.io/ml/2016/04/22/vision-api.html">blog post</a> describing how to build a Kubernetes-based app that let you text images to a <a href="https://www.twilio.com">Twilio</a> phone number (once set up), and get a text back with information about how the
+<a href="https://cloud.google.com/vision/docs/">Cloud Vision API</a> labeled the image.
+(The example code referenced in that earlier post is obsolete, due to API changes.)</p>
+
+<p><a href="https://storage.googleapis.com/amy-jo/images/doofball_doghouse.jpg" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/doofball_doghouse.jpg" width="300" /></a></p>
+
+<p>This little app is a perfect use case for the newly-announced <a href="https://cloud.google.com/run/docs/"><strong>Cloud Run</strong></a> service.</p>
+
+<p>Cloud Run is a managed compute platform that enables you to run stateless containers that are invocable via HTTP requests. Cloud Run is serverless: it abstracts away all infrastructure management. It is built from <a href="https://cloud.google.com/knative/">Knative</a>, letting you choose to run your containers either fully managed with Cloud Run, or in your Google Kubernetes Engine cluster with <a href="https://cloud.google.com/run/docs/quickstarts/prebuilt-deploy-gke">Cloud Run on GKE</a>.</p>
+
+<p>A Cloud Run app will scale to zero instances when it’s not being used, and will scale up transparently when needed, with no intervention required; it’s fully managed. You pay only when your app is processing a request, in 100ms increments. It supports any app that can be packaged into a Docker image for Linux.</p>
+
+<p>We can use the same Docker image as used for the Kubernetes app <em>Deployment</em>, and deploy it to Cloud Run instead.  The new code is here (updated from the previous version to reflect API changes): <a href="https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision">https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision</a>.</p>
+
+<p>The <code>yaml</code> file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:</p>
+
+<pre><code class="language-sh">gcloud beta run deploy --image gcr.io/&lt;your_project&gt;/twilio-vision:v1 --update-env-vars MESSAGE_BLURB="Courtesy of the Google Cloud Vision API..."
+</code></pre>
+
+<p>Give it a try by texting an image to: <strong>(785) 336-5113</strong>.  (The texted images are not retained by Google Cloud Platform, but are stored temporarily with Twilio).</p>
+
+<p>See the example’s <a href="https://github.com/amygdala/code-snippets/blob/master/cloud_run/twilio_vision/README.md">README</a> for more information on setting up such an app for yourself.</p>
+
+<p>Thanks to <strong>Julia Ferraioli</strong> for the <a href="https://www.juliaferraioli.com/blog/2016/02/exploring-world-using-vision-twilio/">original version</a> of this app.</p>
+
+<p><a href="https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg" width="300" /></a></p>
+
+  </article>
+
+</div>
+
+Tags:
+  
+    <a href="/tag/cloud_ml">cloud_ml</a>&nbsp
+  
+    <a href="/tag/cloud_run">cloud_run</a>&nbsp
+  
 </ul>
-
-<!-- <div id="tag-cloud">
-  Jekyll::Drops::SiteDrop
-</div> -->
 
       </div>
     </div>
