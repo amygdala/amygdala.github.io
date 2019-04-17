@@ -3,11 +3,60 @@
   <channel>
     <title>Amy on GCP</title>
     <description></description>
-    <link>http://localhost:4000/</link>
-    <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 15 Apr 2019 13:41:39 -0700</pubDate>
-    <lastBuildDate>Mon, 15 Apr 2019 13:41:39 -0700</lastBuildDate>
+    <link>http://amygdala.github.io/</link>
+    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Tue, 16 Apr 2019 17:18:07 -0700</pubDate>
+    <lastBuildDate>Tue, 16 Apr 2019 17:18:07 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Remote deployment of Kubeflow Pipelines</title>
+        <description>&lt;p&gt;If you’ve used &lt;a href=&quot;https://www.kubeflow.org/docs/&quot;&gt;Kubeflow&lt;/a&gt;, you may know that its &lt;a href=&quot;https://www.kubeflow.org/docs/components/jupyter/&quot;&gt;Jupyter notebooks&lt;/a&gt; installation makes it easy to deploy a &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/&quot;&gt;Kubeflow Pipeline&lt;/a&gt; directly from a notebook, using the &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/&quot;&gt;Pipelines SDK&lt;/a&gt;.
+&lt;a href=&quot;https://github.com/kubeflow/pipelines/blob/master/samples/notebooks/Lightweight%20Python%20components%20-%20basics.ipynb&quot;&gt;This notebook&lt;/a&gt;, and others in that directory, show examples of how you can do that.
+The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstart/&quot;&gt;Pipelines Dashboard&lt;/a&gt;, which is part of the Kubeflow Dashboard, makes it easy to upload and run pipelines as well.&lt;/p&gt;
+
+&lt;p&gt;Sometimes, though, you want to deploy a Kubeflow Pipeline remotely, from outside the Kubeflow cluster. Maybe you want to do this via execution of a command-line script on your local laptop; or from a VM that’s outside the Kubeflow cluster (like the &lt;a href=&quot;https://pantheon.corp.google.com/mlengine/notebooks/instances?project=aju-vtests2&quot;&gt;AI Platform notebooks&lt;/a&gt;); or from services like &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;Cloud Run&lt;/a&gt;, or &lt;a href=&quot;https://cloud.google.com/functions/docs/&quot;&gt;Cloud Functions&lt;/a&gt; (which let you support event-triggered pipelines until that feature is available natively).&lt;/p&gt;
+
+&lt;p&gt;Remote deployment works well, but to implement it, you need to do a bit more setup to create the client connection to Kubeflow Pipelines than you would if you were connecting from within the same Kubeflow cluster.&lt;/p&gt;
+
+&lt;p&gt;For example, the &lt;a href=&quot;https://deploy.kubeflow.cloud/#/deploy&quot;&gt;Kubeflow ‘click-to-deploy’ web app&lt;/a&gt;, which makes it easy to install Kubeflow on GKE, includes the option to set up a &lt;a href=&quot;https://cloud.google.com/iap/&quot;&gt;Cloud Identity-Aware Proxy (IAP)-enabled cluster&lt;/a&gt;.  Connecting remotely to an IAP-enabled cluster requires configuring and using a
+&lt;em&gt;service account&lt;/em&gt; with the correct permissions.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Creating an IAP-enabled Kubeflow installation on GKE using the click-to-deploy web app.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;I’ve created a series of notebooks that walk through how to do the necessary setup for remote deployment in three different contexts:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;kfp_remote_deploy.ipynb&lt;/a&gt; shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb&quot;&gt;kfp_remote_deploy-no-IAP.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster.&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;gcf_kfp_trigger.ipynb&lt;/a&gt; gives an example of how you can use
+&lt;a href=&quot;https://cloud.google.com/functions/&quot;&gt;GCF (Cloud Functions)&lt;/a&gt; to support event-triggering of a Pipeline deployment.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Give them a try and let me know what you think!&lt;/p&gt;
+
+</description>
+        <pubDate>Tue, 16 Apr 2019 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/kubeflow/ml/2019/04/16/kfp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/04/16/kfp.html</guid>
+        
+        <category>kubeflow</category>
+        
+        <category>cloud_ml</category>
+        
+        <category>kubeflow_pipelines</category>
+        
+        
+        <category>Kubeflow</category>
+        
+        <category>ML</category>
+        
+      </item>
     
       <item>
         <title>Cloud Run, the Google Cloud Vision API, and 'Twilio-vision'</title>
@@ -39,8 +88,8 @@
 &lt;p&gt;&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
 </description>
         <pubDate>Mon, 15 Apr 2019 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</guid>
+        <link>http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</guid>
         
         <category>cloud_ml</category>
         
@@ -390,8 +439,8 @@ You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&l
 
 </description>
         <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        <link>http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
         <category>cmle</category>
         
@@ -690,8 +739,8 @@ launch template-based pipelines.&lt;/p&gt;
 your own analytics — via App Engine apps or otherwise. We look forward to hearing more about what you build!&lt;/p&gt;
 </description>
         <pubDate>Tue, 24 Oct 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -890,8 +939,8 @@ We look forward to hearing more about what you build!&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1097,8 +1146,8 @@ flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the predi
 &lt;/ul&gt;
 </description>
         <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/02/03/transfer_learning.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/02/03/transfer_learning.html</guid>
+        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
         
         <category>machine_learning</category>
         
@@ -1203,8 +1252,8 @@ Or, you could include the wiki URLs in the results for any entities that have th
 
 </description>
         <pubDate>Sat, 14 Jan 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/01/14/nlapi.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/01/14/nlapi.html</guid>
+        <link>http://amygdala.github.io/ml/2017/01/14/nlapi.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/01/14/nlapi.html</guid>
         
         <category>machine_learning</category>
         
@@ -1257,8 +1306,8 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 22 Apr 2016 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/ml/2016/04/22/vision-api.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2016/04/22/vision-api.html</guid>
+        <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
         
         <category>vision_api</category>
         
@@ -1283,8 +1332,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Mon, 15 Feb 2016 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/dataflow/2016/02/15/dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/2016/02/15/dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
         
         <category>apache_beam</category>
         
@@ -1315,8 +1364,8 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
 
 </description>
         <pubDate>Wed, 20 May 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/gae/php/2015/05/20/gaephp.html</link>
-        <guid isPermaLink="true">http://localhost:4000/gae/php/2015/05/20/gaephp.html</guid>
+        <link>http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</guid>
         
         <category>php</category>
         
@@ -1326,41 +1375,6 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
         <category>gae</category>
         
         <category>php</category>
-        
-      </item>
-    
-      <item>
-        <title>Real-time analysis of Twitter data using Kubernetes, PubSub and BigQuery</title>
-        <description>&lt;p&gt;&lt;a href=&quot;https://cloud.google.com/pubsub/overview&quot;&gt;Google Cloud &lt;strong&gt;PubSub&lt;/strong&gt;&lt;/a&gt; provides many-to-many, asynchronous messaging that decouples senders and receivers. It allows for secure and highly available communication between independently written applications and delivers low-latency, durable messaging.
-It has just gone to Beta, and is available for anyone to try.&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/tree/master/pubsub&quot;&gt;This example&lt;/a&gt; &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes&quot;&gt;&lt;strong&gt;Kubernetes&lt;/strong&gt;&lt;/a&gt; app shows how to build a ‘pipeline’ to stream Twitter data into &lt;a href=&quot;https://cloud.google.com/bigquery/what-is-bigquery&quot;&gt;&lt;strong&gt;BigQuery&lt;/strong&gt;&lt;/a&gt; using &lt;a href=&quot;https://cloud.google.com/pubsub/docs&quot;&gt;PubSub&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;The app uses uses PubSub to buffer the data coming in from Twitter and to decouple ingestion from processing.
-One of the Kubernetes app &lt;strong&gt;&lt;em&gt;pods&lt;/em&gt;&lt;/strong&gt; reads the data from Twitter and publishes it to a PubSub topic.  Other pods subscribe to the PubSub topic, grab data in small batches, and stream it into BigQuery.  The figure below suggests this flow.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;/images/k8s_pubsub_tw_bq.png&quot; width=&quot;600&quot; alt=&quot;Architecture of app&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;This app can be thought of as a ‘workflow’ type of app– it doesn’t have a web front end (though Kubernetes is great for those types of apps as well).
-Instead, it is designed to continously run a scalable data ingestion pipeline.&lt;/p&gt;
-
-&lt;p&gt;Find the code and more detail &lt;a href=&quot;https://github.com/GoogleCloudPlatform/kubernetes-bigquery-python/tree/master/pubsub&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
-
-</description>
-        <pubDate>Wed, 11 Mar 2015 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/kubernetes/2015/03/11/pubsub.html</link>
-        <guid isPermaLink="true">http://localhost:4000/kubernetes/2015/03/11/pubsub.html</guid>
-        
-        <category>kubernetes</category>
-        
-        <category>pubsub</category>
-        
-        <category>bigquery</category>
-        
-        <category>twitter</category>
-        
-        
-        <category>kubernetes</category>
         
       </item>
     
