@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 22 Apr 2019 12:06:24 -0700</pubDate>
-    <lastBuildDate>Mon, 22 Apr 2019 12:06:24 -0700</lastBuildDate>
+    <pubDate>Mon, 22 Apr 2019 15:43:08 -0700</pubDate>
+    <lastBuildDate>Mon, 22 Apr 2019 15:43:08 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -32,7 +32,7 @@ The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstar
 &lt;p&gt;I’ve created a series of notebooks that walk through how to do the necessary setup for remote deployment in three different contexts:&lt;/p&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;kfp_remote_deploy.ipynb&lt;/a&gt; shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy.ipynb&quot;&gt;kfp_remote_deploy.ipynb&lt;/a&gt; shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).&lt;/li&gt;
   &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb&quot;&gt;kfp_remote_deploy-no-IAP.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster. &lt;br /&gt;
 &lt;strong&gt;Note&lt;/strong&gt;: port-forwarding can be convenient for development, but is discouraged in a production context.&lt;/li&gt;
   &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;gcf_kfp_trigger.ipynb&lt;/a&gt; gives an example of how you can use
