@@ -5,7 +5,7 @@ categories:
 - AutoML
 - ML
 tags: automl ml
-date: 2019-05-03
+date: 2019-05-06
 ---
 
 
@@ -16,7 +16,7 @@ I thought it would be fun to try AutoML Tables on a dataset that's been used for
 ['Chicago Taxi Trips' dataset](https://pantheon.corp.google.com/marketplace/details/city-of-chicago-public-data/chicago-taxi-trips), which is one of a large number of
 [public datasets hosted with BigQuery](https://cloud.google.com/bigquery/public-data/).
 
-These examples use this dataset to build a neural net model (specifically, a ["wide and deep" TensorFlow](https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier) model) that predicts whether a given trip will result in a tip > 20%.  (Many of these examples also show how to use the [TensorFlow Extended (TFX)](https://www.tensorflow.org/tfx) libraries for things like data validation, data preprocessing, and model analysis).
+These examples use this dataset to build a neural net model (specifically, a ["wide and deep" TensorFlow](https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier) model) that predicts whether a given trip will result in a tip > 20%.  (Many of these examples also show how to use the [TensorFlow Extended (TFX)](https://www.tensorflow.org/tfx) libraries for things like data validation, feature preprocessing, and model analysis).
 
 <figure>
 <a href="/images/pipelines_acc.png" target="_blank"><img src="/images/pipelines_acc.png" /></a>
@@ -25,12 +25,15 @@ These examples use this dataset to build a neural net model (specifically, a ["w
 
 <p></p>
 
-We can't directly compare the results of the following AutoML experimentation to those other examples, since they're using a different dataset and model architecture. However, we'll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage, and to that end, we'll generate a version of the taxi trips dataset that has a new column reflecting whether or not the tip was > 20%.  We'll also do a bit of 'bucketing' of the lat/long information using the new BigQuery GIS functions, and weed out rows where either the fare or trip miles are not > 0.
+We can't directly compare the results of the following AutoML experimentation to those previous examples, since they're using a different dataset and model architecture. However, we'll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.
 
-### Create a BigQuery table 
+### Create a BigQuery table for the AutoML input dataset
 
 AutoML Tables makes it easy to ingest data from [BigQuery](https://cloud.google.com/bigquery/).
-So, the first thing we'll do is run a BigQuery query to generate this new version of the dataset. Paste the following SQL into the [BigQuery query window](https://console.cloud.google.com/bigquery), or [use this URL](https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc).
+
+So, we'll generate a version of the Chicago taxi trips public BigQuery table that has a new column reflecting whether or not the tip was > 20%.  We'll also do a bit of 'bucketing' of the lat/long information using the [(new-ish and very cool) BigQuery GIS functions](https://cloud.google.com/bigquery/docs/gis-data), and weed out rows where either the fare or trip miles are not > 0.
+
+So, the first thing we'll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the [BigQuery query window](https://console.cloud.google.com/bigquery), or [use this URL](https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc).
 
 > Note: when I ran this query, it processed 15.66 GB of data. 
 
@@ -181,17 +184,67 @@ It also generates a *confusion matrix*...
 <figcaption><br/><i>The most important features in the dataset, for predicting the given target.</i></figcaption>
 </figure>
 
-### Use your new model for prediction
+#### View your evaluation results in BigQuery
 
-[** ... **]
+You can also export your evaluation results to a new BigQuery table, which lets you see the predicted score and label for the test dataset instances.
 
 <figure>
 <a href="/images/evaluated_examples.png" target="_blank"><img src="/images/evaluated_examples.png" width="99%"/></a>
-<figcaption><br/><i>xxxx</i></figcaption>
+<figcaption><br/><i>Export your model evaluation results to BigQuery.</i></figcaption>
 </figure>
 
 <p></p>
 
-### Summary
 
-[** ... **]
+### Use your new model for prediction
+
+Once you've trained your model, you can use it for prediction. You can opt to use a BigQuery table or Google Cloud Storage (GCS) files for both input sources and outputs.
+
+You can also perform online prediction. For this, you'll first need to **deploy** your model. This process will take a few minutes.  
+
+<figure>
+<a href="/images/deployment.png" target="_blank"><img src="/images/deployment.png" width="500%"/></a>
+<figcaption><br/><i>You can deploy (or delete) any of your trained models.</i></figcaption>
+</figure>
+
+<p></p>
+
+Once deployment's done, you can send real-time REST requests to the AutoML Tables API. The AutoML web UI makes it easy to experiment with this API. (See the [pricing guide](https://cloud.google.com/automl-tables/pricing?_ga=2.215766548.-287350488.1556733758)— if you're just experimenting, you may want to take down your deployed model once you're done.)
+
+> Note the linked
+["getting started" instructions](https://cloud.google.com/automl-tables/docs/before-you-begin) on creating a service account first.
+
+<figure>
+<a href="/images/online_predict.png" target="_blank"><img src="/images/online_predict.png" width="500%"/></a>
+<figcaption><br/><i>Experiment with using the online prediction REST API from the AutoML UI.</i></figcaption>
+</figure>
+
+<p></p>
+
+You'll see json-formatted responses similar to this one:
+
+```json
+{
+  "payload": [
+    {
+      "tables": {
+        "score": 0.999618,
+        "value": "0"
+      }
+    },
+    {
+      "tables": {
+        "score": 0.0003819269,
+        "value": "1"
+      }
+    }
+  ]
+}
+```
+
+
+### Wrap-up
+
+In this post, I showed how straightforward it is to use AutoML Tables to train, evaluate, and use deep neural net models based on your own structured data, but without needing to build model code or manage distributed training; and then deploy the result for scalable serving.
+
+The example also showed how easy it is to leverage BigQuery queries (in particular I highlighted some of the the BigQuery GIS functions) to do some feature pre-processing.
