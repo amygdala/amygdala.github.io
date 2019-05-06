@@ -86,6 +86,10 @@
         
           
         
+          
+        
+          
+        
       </div>
     </nav>
 
@@ -187,16 +191,18 @@ to do this preprocessing – that is, the Beam pipeline uses the Inception v3 mo
 
 <p>Once you’ve done that, you can deploy a trained model to Cloud ML like this.  First, “create the model” in Cloud ML – this does not define the actual model, but creates a name to associate with the model once you upload it. For example:</p>
 
-<pre><code class="language-sh">gcloud beta ml models create hugs
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud beta ml models create hugs
 </code></pre>
+</div>
 
 <p>Then, <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/model.sh">deploy a <em>version</em> of that model</a> by pointing Cloud ML to the checkpointed model info that was saved as the final result of your training session.
 The command to do that will look something like this:</p>
 
-<pre><code class="language-sh">gcloud beta ml versions create v1 \
-  --model hugs \
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud beta ml versions create v1 <span class="se">\</span>
+  --model hugs <span class="se">\</span>
   --origin gs://your-gcs-bucket/path/to/model
 </code></pre>
+</div>
 
 <p>It will take a few minutes to create the model version. Once that’s done, you can start to access it for prediction in your apps.  Each time you deploy a new version of your model, you will use a new version name.  If you have more than one version of a model, you can set one as the default.</p>
 
@@ -219,27 +225,28 @@ call<sup><a href="#footnote1">1</a></sup> and display the response.</p>
 
 <p>Here is a Python code snippet showing a prediction API call:</p>
 
-<pre><code class="language-python">from googleapiclient import discovery
-from oauth2client.client import GoogleCredentials
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">from</span> <span class="nn">googleapiclient</span> <span class="kn">import</span> <span class="n">discovery</span>
+<span class="kn">from</span> <span class="nn">oauth2client.client</span> <span class="kn">import</span> <span class="n">GoogleCredentials</span>
 
-def create_client():
+<span class="k">def</span> <span class="nf">create_client</span><span class="p">():</span>
 
-  credentials = GoogleCredentials.get_application_default()
-  ml_service = discovery.build(
-      'ml', 'v1beta1', credentials=credentials)
-  return ml_service
+  <span class="n">credentials</span> <span class="o">=</span> <span class="n">GoogleCredentials</span><span class="o">.</span><span class="n">get_application_default</span><span class="p">()</span>
+  <span class="n">ml_service</span> <span class="o">=</span> <span class="n">discovery</span><span class="o">.</span><span class="n">build</span><span class="p">(</span>
+      <span class="s">'ml'</span><span class="p">,</span> <span class="s">'v1beta1'</span><span class="p">,</span> <span class="n">credentials</span><span class="o">=</span><span class="n">credentials</span><span class="p">)</span>
+  <span class="k">return</span> <span class="n">ml_service</span>
 
 
-def get_prediction(ml_service, project, model_name, input_image):
-  request_dict = make_request_json(input_image)
-  body = {'instances': [request_dict]}
+<span class="k">def</span> <span class="nf">get_prediction</span><span class="p">(</span><span class="n">ml_service</span><span class="p">,</span> <span class="n">project</span><span class="p">,</span> <span class="n">model_name</span><span class="p">,</span> <span class="n">input_image</span><span class="p">):</span>
+  <span class="n">request_dict</span> <span class="o">=</span> <span class="n">make_request_json</span><span class="p">(</span><span class="n">input_image</span><span class="p">)</span>
+  <span class="n">body</span> <span class="o">=</span> <span class="p">{</span><span class="s">'instances'</span><span class="p">:</span> <span class="p">[</span><span class="n">request_dict</span><span class="p">]}</span>
 
-  # This request will use the default model version.
-  parent = 'projects/{}/models/{}'.format(project, model_name)
-  request = ml_service.projects().predict(name=parent, body=body)
-  result = request.execute()
-  return result
+  <span class="c"># This request will use the default model version.</span>
+  <span class="n">parent</span> <span class="o">=</span> <span class="s">'projects/{}/models/{}'</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">project</span><span class="p">,</span> <span class="n">model_name</span><span class="p">)</span>
+  <span class="n">request</span> <span class="o">=</span> <span class="n">ml_service</span><span class="o">.</span><span class="n">projects</span><span class="p">()</span><span class="o">.</span><span class="n">predict</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="n">parent</span><span class="p">,</span> <span class="n">body</span><span class="o">=</span><span class="n">body</span><span class="p">)</span>
+  <span class="n">result</span> <span class="o">=</span> <span class="n">request</span><span class="o">.</span><span class="n">execute</span><span class="p">()</span>
+  <span class="k">return</span> <span class="n">result</span>
 </code></pre>
+</div>
 
 <p>You can see more detail on how the uploaded image was formatted for the API request, and how the response was 
 parsed, <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/web_server/predict_server.py">here</a>.</p>
@@ -256,20 +263,21 @@ parsed, <a href="https://github.com/amygdala/tensorflow-workshop/blob/master/wor
 
 <p>It turns out that if you ask the “flowers” model what kind of flower a hedgehog is, it will classify it pretty confidently as looking most like a dandelion. This seems pretty astute of the flowers model!</p>
 
-<pre><code class="language-sh">$ python images_to_json.py hedgehog.jpg
-$ gcloud beta ml predict --model flowers --json-instances request.json
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code><span class="gp">$ </span>python images_to_json.py hedgehog.jpg
+<span class="gp">$ </span>gcloud beta ml predict --model flowers --json-instances request.json
 KEY                             PREDICTION  SCORES
-prediction_images/hedgehog.jpg  1           [0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
-$ gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
+prediction_images/hedgehog.jpg  1           <span class="o">[</span>0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
+<span class="gp">$ </span>gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
 daisy
 dandelion
 roses
 sunflowers
 tulips
 </code></pre>
+</div>
 
-<p>(We can see this is so because <code>dandelion</code> is in the ‘1’ index position in the 
-flower dataset’s <code>dict.txt</code>, corresponding to the prediction of ‘1’.)</p>
+<p>(We can see this is so because <code class="highlighter-rouge">dandelion</code> is in the ‘1’ index position in the 
+flower dataset’s <code class="highlighter-rouge">dict.txt</code>, corresponding to the prediction of ‘1’.)</p>
 
 <h2 id="what-next">What Next?</h2>
 
@@ -280,7 +288,7 @@ flower dataset’s <code>dict.txt</code>, corresponding to the prediction of ‘
 <hr />
 
 <p><small>
-<span id="footnote1">1</span>: While the prediction service is in alpha, you may sometimes see a <code>502</code> error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.</small></p>
+<span id="footnote1">1</span>: While the prediction service is in alpha, you may sometimes see a <code class="highlighter-rouge">502</code> error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.</small></p>
 
 <p><small>
 <span id="footnote2">2</span>: It’s possible that this amuses only me.</small></p>

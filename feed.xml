@@ -5,9 +5,266 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 22 Apr 2019 15:43:08 -0700</pubDate>
-    <lastBuildDate>Mon, 22 Apr 2019 15:43:08 -0700</lastBuildDate>
+    <pubDate>Mon, 06 May 2019 09:59:56 -0700</pubDate>
+    <lastBuildDate>Mon, 06 May 2019 09:59:56 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>AutoML Tables and the 'Chicago Taxi Trips' dataset</title>
+        <description>&lt;p&gt;&lt;a href=&quot;https://cloud.google.com/automl-tables/&quot;&gt;AutoML Tables&lt;/a&gt; was recently &lt;a href=&quot;https://cloud.google.com/blog/products/ai-machine-learning/expanding-google-cloud-ai-to-make-it-easier-for-developers-to-build-and-deploy-ai&quot;&gt;announced&lt;/a&gt; as a new member of GCP’s &lt;a href=&quot;https://cloud.google.com/automl/&quot;&gt;family&lt;/a&gt; of AutoML products. It lets you automatically build and deploy state-of-the-art machine learning models on structured data.&lt;/p&gt;
+
+&lt;p&gt;I thought it would be fun to try AutoML Tables on a dataset that’s been used for a number of recent
+&lt;a href=&quot;https://www.tensorflow.org&quot;&gt;TensorFlow&lt;/a&gt;-based examples: the
+&lt;a href=&quot;https://pantheon.corp.google.com/marketplace/details/city-of-chicago-public-data/chicago-taxi-trips&quot;&gt;‘Chicago Taxi Trips’ dataset&lt;/a&gt;, which is one of a large number of
+&lt;a href=&quot;https://cloud.google.com/bigquery/public-data/&quot;&gt;public datasets hosted with BigQuery&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;These examples use this dataset to build a neural net model (specifically, a &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier&quot;&gt;“wide and deep” TensorFlow&lt;/a&gt; model) that predicts whether a given trip will result in a tip &amp;gt; 20%.  (Many of these examples also show how to use the &lt;a href=&quot;https://www.tensorflow.org/tfx&quot;&gt;TensorFlow Extended (TFX)&lt;/a&gt; libraries for things like data validation, feature preprocessing, and model analysis).&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/pipelines_acc.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/pipelines_acc.png&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Metrics from running the &lt;a href=&quot;https://kubeflow.org&quot;&gt;Kubeflow Pipelines&lt;/a&gt; &lt;a href=&quot;https://github.com/kubeflow/pipelines/tree/master/samples/tfx&quot;&gt;version&lt;/a&gt; of the TFX-based 'Chicago Taxi Data' &lt;a href=&quot;https://github.com/tensorflow/tfx/blob/master/tfx/examples/chicago_taxi/README.md&quot;&gt;example&lt;/a&gt;.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;We can’t directly compare the results of the following AutoML experimentation to those previous examples, since they’re using a different dataset and model architecture. However, we’ll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.&lt;/p&gt;
+
+&lt;h3 id=&quot;create-a-bigquery-table-for-the-automl-input-dataset&quot;&gt;Create a BigQuery table for the AutoML input dataset&lt;/h3&gt;
+
+&lt;p&gt;AutoML Tables makes it easy to ingest data from &lt;a href=&quot;https://cloud.google.com/bigquery/&quot;&gt;BigQuery&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;So, we’ll generate a version of the Chicago taxi trips public BigQuery table that has a new column reflecting whether or not the tip was &amp;gt; 20%.  We’ll also do a bit of ‘bucketing’ of the lat/long information using the &lt;a href=&quot;https://cloud.google.com/bigquery/docs/gis-data&quot;&gt;(new-ish and very cool) BigQuery GIS functions&lt;/a&gt;, and weed out rows where either the fare or trip miles are not &amp;gt; 0.&lt;/p&gt;
+
+&lt;p&gt;So, the first thing we’ll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the &lt;a href=&quot;https://console.cloud.google.com/bigquery&quot;&gt;BigQuery query window&lt;/a&gt;, or &lt;a href=&quot;https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc&quot;&gt;use this URL&lt;/a&gt;.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Note: when I ran this query, it processed 15.66 GB of data.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;div class=&quot;language-sql highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;WITH&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;taxitrips&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;AS&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;SELECT&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_start_timestamp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_end_timestamp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_seconds&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_miles&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;pickup_census_tract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dropoff_census_tract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;pickup_community_area&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dropoff_community_area&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;fare&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;tolls&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;extras&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_total&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;payment_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;company&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;pickup_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;pickup_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dropoff_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dropoff_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;IF&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;((&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;tips&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;/&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;fare&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+      &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;AS&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tip_bin&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;
+    &lt;span class=&quot;nv&quot;&gt;`bigquery-public-data.chicago_taxi_trips.taxi_trips`&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;WHERE&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;trip_miles&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;AND&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;fare&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;SELECT&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;trip_start_timestamp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;trip_end_timestamp&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;trip_seconds&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;trip_miles&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;pickup_census_tract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;dropoff_census_tract&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;pickup_community_area&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;dropoff_community_area&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;fare&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;tolls&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;extras&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;trip_total&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;payment_type&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;company&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;tip_bin&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ST_AsText&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ST_SnapToGrid&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ST_GeogPoint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pickup_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;pickup_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+      &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;05&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;AS&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pickup_grid&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ST_AsText&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ST_SnapToGrid&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ST_GeogPoint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dropoff_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;dropoff_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+      &lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;05&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;AS&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dropoff_grid&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ST_Distance&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ST_GeogPoint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pickup_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;pickup_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;ST_GeogPoint&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dropoff_longitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;dropoff_latitude&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;AS&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;euclidean&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;FROM&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;taxitrips&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;LIMIT&lt;/span&gt;
+  &lt;span class=&quot;mi&quot;&gt;100000000&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;You can see the use of the &lt;code class=&quot;highlighter-rouge&quot;&gt;ST_SnapToGrid&lt;/code&gt; function to “bucket” the lat/long data. (Currently, AutoML Tables doesn’t support the BigQuery GIS data types, so we’re converting those to text and will treat them categorically). We’re also generating a new euclidean distance measure between pickup and dropoff using the &lt;code class=&quot;highlighter-rouge&quot;&gt;ST_Distance&lt;/code&gt; function.&lt;/p&gt;
+
+&lt;p&gt;When the query has finished running, export the results to a table in your own project, by clicking on “Save Results”.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/bq_save_results.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/bq_save_results.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Save the query results to a table in your own project.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;import-your-new-table-as-an-automl-dataset&quot;&gt;Import your new table as an AutoML dataset&lt;/h3&gt;
+
+&lt;p&gt;Then, return to the &lt;a href=&quot;https://console.cloud.google.com/automl-tables/datasets&quot;&gt;AutoML panel in the Cloud Console&lt;/a&gt;, and import your new table (the one in your own project), as a new AutoML Tables dataset.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/create_dataset.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/create_dataset.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Import your new BigQuery table to create a new AutoML Tables dataset.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;specify-a-schema-and-launch-the-automl-model-training-job&quot;&gt;Specify a schema, and launch the AutoML model training job&lt;/h3&gt;
+
+&lt;p&gt;After the import has completed, you’ll next specify a schema for your dataset. Here is where you indicate which column is your ‘target’ (what you’d like to learn to predict), as well as the column types.&lt;/p&gt;
+
+&lt;p&gt;We’ll use the &lt;code class=&quot;highlighter-rouge&quot;&gt;tip_bin&lt;/code&gt; column as the &lt;em&gt;target&lt;/em&gt;.  Recall that this is one of the new columns we created when generating the new BigQuery table.  So, the ML task will be to learn how to predict — given other information about the trip — whether or not the tip will be over 20%.
+Note that once you select this column as the target, AutoML automatically suggests that it should build a classification model, which is what we want.&lt;/p&gt;
+
+&lt;p&gt;Then, we’ll adjust some of the column types.  AutoML does a pretty good job of inferring what they should be, based on the characteristics of the dataset.  However, we’ll set the ‘census tract’ and ‘community area’ columns (for both pickup and dropoff) to be treated as &lt;em&gt;categorical&lt;/em&gt;, not numerical.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/schema.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/schema.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Specify the input schema for your training job.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;We can view an analysis of the dataset as well.  Some rows have a lot of missing fields.  We won’t take any further action for this example, but if this was your own dataset, this might indicate places where your data collection process was problematic or where your daataset needed some cleanup.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/analyze.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/analyze.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;AutoML Table's analysis of the dataset.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;Now we’re ready to kick off the training job. We need to tell it how many node-hours to spend.  Here I’m using 3, but you might want to use just 1 hour in your experiment. &lt;a href=&quot;https://cloud.google.com/automl-tables/pricing?_ga=2.214193684.-287350488.1556733758&quot;&gt;(Here’s&lt;/a&gt; the (beta) pricing guide.)
+We’ll also tell AutoML which (non-target) columns to use as input.  Here, we’ll indicate to drop one column,
+the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. This value is correlated with tip, so for the purposes of this experiment, its inclusion is ‘cheating’.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/train_setup.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/train_setup.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Setting up an AutoML Tables training job.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h3 id=&quot;evaluating-the-automl-model&quot;&gt;Evaluating the AutoML model&lt;/h3&gt;
+
+&lt;p&gt;When the training completes, you’ll get an email notification. AutoML automatically generates and displays model evaluation metrics for you. We can see, for example, that the model accuracy is 90.6% and the AUC ROC is 0.954.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/automl_eval1.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/automl_eval1.png&quot; width=&quot;95%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;AutoML Tables model evaluation info.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;It also generates a &lt;em&gt;confusion matrix&lt;/em&gt;…&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/automl_confusion_matrix.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/automl_confusion_matrix.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;!-- &lt;figcaption&gt;&lt;br/&gt;&lt;i&gt;xxx.&lt;/i&gt;&lt;/figcaption&gt; --&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;…and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that &lt;code class=&quot;highlighter-rouge&quot;&gt;payment_type&lt;/code&gt; was most important.  (My guess: people are more likely to tip if they’re putting the fare on a credit card, where a tip is automatically suggested).  It looks like the pickup and dropoff info was not that informative, though information about trip distance was a bit more so.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/automl_feature_impt.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/automl_feature_impt.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;The most important features in the dataset, for predicting the given target.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h4 id=&quot;view-your-evaluation-results-in-bigquery&quot;&gt;View your evaluation results in BigQuery&lt;/h4&gt;
+
+&lt;p&gt;You can also export your evaluation results to a new BigQuery table, which lets you see the predicted score and label for the test dataset instances.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/evaluated_examples.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/evaluated_examples.png&quot; width=&quot;99%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Export your model evaluation results to BigQuery.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;h3 id=&quot;use-your-new-model-for-prediction&quot;&gt;Use your new model for prediction&lt;/h3&gt;
+
+&lt;p&gt;Once you’ve trained your model, you can use it for prediction. You can opt to use a BigQuery table or Google Cloud Storage (GCS) files for both input sources and outputs.&lt;/p&gt;
+
+&lt;p&gt;You can also perform online prediction. For this, you’ll first need to &lt;strong&gt;deploy&lt;/strong&gt; your model. This process will take a few minutes.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/deployment.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/deployment.png&quot; width=&quot;500%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;You can deploy (or delete) any of your trained models.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;Once deployment’s done, you can send real-time REST requests to the AutoML Tables API. The AutoML web UI makes it easy to experiment with this API. (See the &lt;a href=&quot;https://cloud.google.com/automl-tables/pricing?_ga=2.215766548.-287350488.1556733758&quot;&gt;pricing guide&lt;/a&gt;— if you’re just experimenting, you may want to take down your deployed model once you’re done.)&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;Note the linked
+&lt;a href=&quot;https://cloud.google.com/automl-tables/docs/before-you-begin&quot;&gt;“getting started” instructions&lt;/a&gt; on creating a service account first.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;/images/online_predict.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/online_predict.png&quot; width=&quot;500%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Experiment with using the online prediction REST API from the AutoML UI.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;You’ll see json-formatted responses similar to this one:&lt;/p&gt;
+
+&lt;div class=&quot;language-json highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+  &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;payload&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;tables&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+        &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;score&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;0.999618&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+        &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;value&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;0&quot;&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;},&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;tables&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+        &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;score&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;mf&quot;&gt;0.0003819269&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+        &lt;/span&gt;&lt;span class=&quot;nt&quot;&gt;&quot;value&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;&lt;span class=&quot;w&quot;&gt; &lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;1&quot;&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+      &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+    &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+  &lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;&lt;span class=&quot;w&quot;&gt;
+&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h3 id=&quot;wrap-up&quot;&gt;Wrap-up&lt;/h3&gt;
+
+&lt;p&gt;In this post, I showed how straightforward it is to use AutoML Tables to train, evaluate, and use deep neural net models based on your own structured data, but without needing to build model code or manage distributed training; and then deploy the result for scalable serving.&lt;/p&gt;
+
+&lt;p&gt;The example also showed how easy it is to leverage BigQuery queries (in particular I highlighted some of the the BigQuery GIS functions) to do some feature pre-processing.&lt;/p&gt;
+</description>
+        <pubDate>Mon, 06 May 2019 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</guid>
+        
+        <category>automl</category>
+        
+        <category>ml</category>
+        
+        
+        <category>AutoML</category>
+        
+        <category>ML</category>
+        
+      </item>
     
       <item>
         <title>Remote deployment of Kubeflow Pipelines</title>
@@ -75,10 +332,11 @@ The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstar
 
 &lt;p&gt;We can use the same Docker image as used for the Kubernetes app &lt;em&gt;Deployment&lt;/em&gt;, and deploy it to Cloud Run instead.  The new code is here (updated from the previous version to reflect API changes): &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision&quot;&gt;https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision&lt;/a&gt;.&lt;/p&gt;
 
-&lt;p&gt;The &lt;code&gt;yaml&lt;/code&gt; file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:&lt;/p&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;yaml&lt;/code&gt; file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta run deploy --image gcr.io/&amp;lt;your_project&amp;gt;/twilio-vision:v1 --update-env-vars MESSAGE_BLURB=&quot;Courtesy of the Google Cloud Vision API...&quot;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta run deploy --image gcr.io/&amp;lt;your_project&amp;gt;/twilio-vision:v1 --update-env-vars &lt;span class=&quot;nv&quot;&gt;MESSAGE_BLURB&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;Courtesy of the Google Cloud Vision API...&quot;&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Give it a try by texting an image to: &lt;strong&gt;(785) 336-5113&lt;/strong&gt;.  (The texted images are not retained by Google Cloud Platform, but are stored temporarily with Twilio).&lt;/p&gt;
 
@@ -107,19 +365,19 @@ The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstar
         <title>Easy distributed training with TensorFlow using tf.estimator.train_and_evaluate and Cloud ML Engine</title>
         <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
 
-&lt;p&gt;TensorFlow release 1.4 introduced the function &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/train_and_evaluate&quot;&gt;&lt;strong&gt;&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;&lt;/a&gt;, which simplifies training, evaluation, and exporting of &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;&lt;code&gt;Estimator&lt;/code&gt;&lt;/a&gt; models. It abstracts away the details of &lt;a href=&quot;https://www.google.com/url?q=https://www.tensorflow.org/deploy/distributed&quot;&gt;distributed execution&lt;/a&gt; for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
+&lt;p&gt;TensorFlow release 1.4 introduced the function &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/train_and_evaluate&quot;&gt;&lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;&lt;/a&gt;, which simplifies training, evaluation, and exporting of &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt;&lt;/a&gt; models. It abstracts away the details of &lt;a href=&quot;https://www.google.com/url?q=https://www.tensorflow.org/deploy/distributed&quot;&gt;distributed execution&lt;/a&gt; for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
 
-&lt;p&gt;This means that with &lt;strong&gt;&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;, you can run the same code on both locally and distributed in the cloud, on different devices and using different cluster configurations, and get consistent results, &lt;strong&gt;without making any code changes&lt;/strong&gt;. When you’re done training (or at intermediate stages), the trained model is automatically exported in a &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;form suitable for serving&lt;/a&gt; (e.g. for &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;Cloud ML Engine online prediction&lt;/a&gt; or &lt;a href=&quot;https://www.tensorflow.org/serving/&quot;&gt;TensorFlow serving&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;This means that with &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;&lt;/strong&gt;, you can run the same code on both locally and distributed in the cloud, on different devices and using different cluster configurations, and get consistent results, &lt;strong&gt;without making any code changes&lt;/strong&gt;. When you’re done training (or at intermediate stages), the trained model is automatically exported in a &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;form suitable for serving&lt;/a&gt; (e.g. for &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;Cloud ML Engine online prediction&lt;/a&gt; or &lt;a href=&quot;https://www.tensorflow.org/serving/&quot;&gt;TensorFlow serving&lt;/a&gt;).&lt;/p&gt;
 
-&lt;p&gt;In this post, we’ll walk through how to use &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt; with an &lt;code&gt;Estimator&lt;/code&gt; model, and then show how easy it is to do &lt;strong&gt;distributed training of the model on &lt;a href=&quot;https://cloud.google.com/ml-engine&quot;&gt;Cloud ML Engine&lt;/a&gt;&lt;/strong&gt;, moving between different cluster configurations with just a config tweak.
+&lt;p&gt;In this post, we’ll walk through how to use &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt; with an &lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt; model, and then show how easy it is to do &lt;strong&gt;distributed training of the model on &lt;a href=&quot;https://cloud.google.com/ml-engine&quot;&gt;Cloud ML Engine&lt;/a&gt;&lt;/strong&gt;, moving between different cluster configurations with just a config tweak.
 (The TensorFlow code itself supports distribution on any infrastructure (GCE, GKE, etc.) when properly configured, but we will focus on Cloud ML Engine, which makes the experience seamless).&lt;/p&gt;
 
 &lt;p&gt;The primary steps necessary to do this are:&lt;/p&gt;
 
 &lt;ul&gt;
-  &lt;li&gt;build your &lt;code&gt;Estimator&lt;/code&gt; model;&lt;/li&gt;
+  &lt;li&gt;build your &lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt; model;&lt;/li&gt;
   &lt;li&gt;define how data is fed into the model for both training and test datasets (often these definitions are essentially the same); and&lt;/li&gt;
-  &lt;li&gt;define training and eval specifications (&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code&gt;TrainSpec&lt;/code&gt;&lt;/a&gt; and &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;) to be passed to &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  The &lt;code&gt;EvalSpec&lt;/code&gt; can include information on how to export your trained model for prediction (serving), and we’ll look at how to do that as well.&lt;/li&gt;
+  &lt;li&gt;define training and eval specifications (&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;TrainSpec&lt;/code&gt;&lt;/a&gt; and &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;) to be passed to &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  The &lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt; can include information on how to export your trained model for prediction (serving), and we’ll look at how to do that as well.&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;Then we’ll look at how to &lt;strong&gt;use the trained model to make predictions&lt;/strong&gt;.&lt;/p&gt;
@@ -140,157 +398,165 @@ To see the specifics and work through the code yourself, visit the &lt;a href=&q
 
 &lt;p&gt;The TensorFlow &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/Estimator&quot;&gt;Estimator&lt;/a&gt; class wraps a model, and provides built-in support for distributed training and evaluation. You should nearly always use Estimators to create your TensorFlow models. ‘Pre-made’ Estimator subclasses are an effective way to quickly create standard models, and you can build a &lt;a href=&quot;https://www.tensorflow.org/extend/estimators&quot;&gt;Custom Estimator&lt;/a&gt; if none of the pre-made Estimators suit your purpose.&lt;/p&gt;
 
-&lt;p&gt;For this example, we’ll create an &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;Estimator&lt;/a&gt; object using a pre-made subclass, &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier&quot;&gt;&lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt;&lt;/a&gt;, which implements a &lt;a href=&quot;https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html&quot;&gt;“wide and deep”&lt;/a&gt; model. Wide and deep models use a deep neural net (DNN) to learn high level abstractions about complex features or interactions between such features. These models then combine the outputs from the DNN with a &lt;a href=&quot;https://en.wikipedia.org/wiki/Linear_regression&quot;&gt;linear regression&lt;/a&gt; performed on simpler features. This provides a balance between power and speed that is effective on many structured data problems.&lt;/p&gt;
+&lt;p&gt;For this example, we’ll create an &lt;a href=&quot;https://www.tensorflow.org/get_started/estimator&quot;&gt;Estimator&lt;/a&gt; object using a pre-made subclass, &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;DNNLinearCombinedClassifier&lt;/code&gt;&lt;/a&gt;, which implements a &lt;a href=&quot;https://research.googleblog.com/2016/06/wide-deep-learning-better-together-with.html&quot;&gt;“wide and deep”&lt;/a&gt; model. Wide and deep models use a deep neural net (DNN) to learn high level abstractions about complex features or interactions between such features. These models then combine the outputs from the DNN with a &lt;a href=&quot;https://en.wikipedia.org/wiki/Linear_regression&quot;&gt;linear regression&lt;/a&gt; performed on simpler features. This provides a balance between power and speed that is effective on many structured data problems.&lt;/p&gt;
 
 &lt;p&gt;See the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator&quot;&gt;notebook&lt;/a&gt; for the details of defining our Estimator, including specification of the expected format of the input data.
 The data is in CSV format, and looks like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code&gt;39, State-gov, 77516, Bachelors, 13, Never-married, Adm-clerical, Not-in-family, White, Male, 2174, 0, 40, United-States, &amp;lt;=50K
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;39, State-gov, 77516, Bachelors, 13, Never-married, Adm-clerical, Not-in-family, White, Male, 2174, 0, 40, United-States, &amp;lt;=50K
 50, Self-emp-not-inc, 83311, Bachelors, 13, Married-civ-spouse, Exec-managerial, Husband, White, Male, 0, 0, 13, United-States, &amp;lt;=50K
 38, Private, 215646, HS-grad, 9, Divorced, Handlers-cleaners, Not-in-family, White, Male, 0, 0, 40, United-States, &amp;lt;=50K
 ...
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;We’ll use the last field, which indicates income bracket, as our label, meaning that this is the value we’ll predict based on the values of the other fields.&lt;/p&gt;
 
-&lt;p&gt;In the &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator&quot;&gt;notebook&lt;/a&gt;, we define a &lt;code&gt;build_estimator&lt;/code&gt; function, which takes as input config info, and returns a &lt;code&gt;tf.estimator.DNNLinearCombinedClassifier&lt;/code&gt; object.
+&lt;p&gt;In the &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#First-step:-create-an-Estimator&quot;&gt;notebook&lt;/a&gt;, we define a &lt;code class=&quot;highlighter-rouge&quot;&gt;build_estimator&lt;/code&gt; function, which takes as input config info, and returns a &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.DNNLinearCombinedClassifier&lt;/code&gt; object.
 We’ll call it like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;run_config = tf.estimator.RunConfig()
-run_config = run_config.replace(model_dir=output_dir)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;run_config&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;RunConfig&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;run_config&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;run_config&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;replace&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;model_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;output_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-FIRST_LAYER_SIZE = 100  # Number of nodes in the first layer of the DNN
-NUM_LAYERS = 4  # Number of layers in the DNN
-SCALE_FACTOR = 0.7  # How quickly should the size of the layers in the DNN decay
-EMBEDDING_SIZE = 8  # Number of embedding dimensions for categorical columns
+&lt;span class=&quot;n&quot;&gt;FIRST_LAYER_SIZE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;  &lt;span class=&quot;c&quot;&gt;# Number of nodes in the first layer of the DNN&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;NUM_LAYERS&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;  &lt;span class=&quot;c&quot;&gt;# Number of layers in the DNN&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;SCALE_FACTOR&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mf&quot;&gt;0.7&lt;/span&gt;  &lt;span class=&quot;c&quot;&gt;# How quickly should the size of the layers in the DNN decay&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;EMBEDDING_SIZE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;8&lt;/span&gt;  &lt;span class=&quot;c&quot;&gt;# Number of embedding dimensions for categorical columns&lt;/span&gt;
 
-estimator = build_estimator(
-    embedding_size=EMBEDDING_SIZE,
-    # Construct layers sizes with exponential decay
-    hidden_units=[
-        max(2, int(FIRST_LAYER_SIZE *
-                   SCALE_FACTOR**i))
-        for i in range(NUM_LAYERS)
-    ],
-    config=run_config
-)
+&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;build_estimator&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;embedding_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;EMBEDDING_SIZE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;c&quot;&gt;# Construct layers sizes with exponential decay&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;hidden_units&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;
+        &lt;span class=&quot;nb&quot;&gt;max&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;int&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;FIRST_LAYER_SIZE&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt;
+                   &lt;span class=&quot;n&quot;&gt;SCALE_FACTOR&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;**&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;i&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+        &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;i&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;range&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;NUM_LAYERS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;config&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;run_config&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;h2 id=&quot;step-2-define-input-functions-using-datasets&quot;&gt;Step 2: Define input functions using Datasets&lt;/h2&gt;
 
 &lt;p&gt;Now that we have defined our model structure, the next step is to use it for training and evaluation.
-As with any &lt;code&gt;Estimator&lt;/code&gt;, we’ll need to tell the &lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt; object how to get its training and eval data. We’ll define a function (&lt;code&gt;input_fn&lt;/code&gt;) that knows how to generate features and labels for training or evaluation, then use that definition to create the actual train and eval input functions.&lt;/p&gt;
+As with any &lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt;, we’ll need to tell the &lt;code class=&quot;highlighter-rouge&quot;&gt;DNNLinearCombinedClassifier&lt;/code&gt; object how to get its training and eval data. We’ll define a function (&lt;code class=&quot;highlighter-rouge&quot;&gt;input_fn&lt;/code&gt;) that knows how to generate features and labels for training or evaluation, then use that definition to create the actual train and eval input functions.&lt;/p&gt;
 
 &lt;p&gt;We’ll use &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/data/Dataset&quot;&gt;Datasets&lt;/a&gt; to access our data.
 This API is a new way to create &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/docs_src/performance/datasets_performance.md&quot;&gt;input pipelines to TensorFlow models&lt;/a&gt;.
-The &lt;code&gt;Dataset&lt;/code&gt; API is much more performant than using &lt;code&gt;feed_dict&lt;/code&gt; or the queue-based pipelines, and it’s &lt;a href=&quot;https://developers.googleblog.com/2017/09/introducing-tensorflow-datasets.html&quot;&gt;cleaner and easier&lt;/a&gt; to use.&lt;/p&gt;
+The &lt;code class=&quot;highlighter-rouge&quot;&gt;Dataset&lt;/code&gt; API is much more performant than using &lt;code class=&quot;highlighter-rouge&quot;&gt;feed_dict&lt;/code&gt; or the queue-based pipelines, and it’s &lt;a href=&quot;https://developers.googleblog.com/2017/09/introducing-tensorflow-datasets.html&quot;&gt;cleaner and easier&lt;/a&gt; to use.&lt;/p&gt;
 
 &lt;p&gt;In this simple example, our datasets are too small for the use of the Dataset API to make a large difference, but with larger datasets it becomes much more important.&lt;/p&gt;
 
-&lt;p&gt;The &lt;code&gt;input_fn&lt;/code&gt; definition is below. It uses a couple of helper functions that are defined in the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Define-input-functions-(using-Datasets)&quot;&gt;notebook&lt;/a&gt;. One of these,
-&lt;code&gt;parse_label_column&lt;/code&gt;, is used to convert the label strings (in our case, ‘ &amp;lt;=50K’ and ‘ &amp;gt;50K’) into &lt;a href=&quot;https://www.kaggle.com/dansbecker/using-categorical-data-with-one-hot-encoding&quot;&gt;one-hot&lt;/a&gt; encodings, which map categorical features into a format that works better with most ML classification models.&lt;/p&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;input_fn&lt;/code&gt; definition is below. It uses a couple of helper functions that are defined in the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Define-input-functions-(using-Datasets)&quot;&gt;notebook&lt;/a&gt;. One of these,
+&lt;code class=&quot;highlighter-rouge&quot;&gt;parse_label_column&lt;/code&gt;, is used to convert the label strings (in our case, ‘ &amp;lt;=50K’ and ‘ &amp;gt;50K’) into &lt;a href=&quot;https://www.kaggle.com/dansbecker/using-categorical-data-with-one-hot-encoding&quot;&gt;one-hot&lt;/a&gt; encodings, which map categorical features into a format that works better with most ML classification models.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;# This function returns a (features, indices) tuple, where features is a dictionary of
-# Tensors, and indices is a single Tensor of label indices.
-def input_fn(filenames,
-                      num_epochs=None,
-                      shuffle=True,
-                      skip_header_lines=0,
-                      batch_size=200):
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;c&quot;&gt;# This function returns a (features, indices) tuple, where features is a dictionary of&lt;/span&gt;
+&lt;span class=&quot;c&quot;&gt;# Tensors, and indices is a single Tensor of label indices.&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;input_fn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;filenames&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                      &lt;span class=&quot;n&quot;&gt;num_epochs&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                      &lt;span class=&quot;n&quot;&gt;shuffle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                      &lt;span class=&quot;n&quot;&gt;skip_header_lines&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                      &lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;200&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
 
-  dataset = tf.data.TextLineDataset(filenames).skip(skip_header_lines).map(parse_csv)
+  &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TextLineDataset&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;filenames&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;skip&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;skip_header_lines&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parse_csv&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-  if shuffle:
-    dataset = dataset.shuffle(buffer_size=batch_size * 10)
-  dataset = dataset.repeat(num_epochs)
-  dataset = dataset.batch(batch_size)
-  iterator = dataset.make_one_shot_iterator()
-  features = iterator.get_next()
-  return features, parse_label_column(features.pop(LABEL_COLUMN))
+  &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;shuffle&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shuffle&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;buffer_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;*&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;repeat&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;num_epochs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;iterator&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dataset&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;make_one_shot_iterator&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;features&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;iterator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_next&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;features&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;parse_label_column&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;features&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pop&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;LABEL_COLUMN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;Then, we’ll use &lt;code&gt;input_fn&lt;/code&gt; to define both the &lt;code&gt;train_input&lt;/code&gt; and &lt;code&gt;eval_input&lt;/code&gt; functions.  We just need to pass &lt;code&gt;input_fn&lt;/code&gt; the different source files to use for training versus evaluation.
-As we’ll see below, these two functions will be used to define a &lt;code&gt;TrainSpec&lt;/code&gt; and &lt;code&gt;EvalSpec&lt;/code&gt; used by &lt;code&gt;train_and_evaluate&lt;/code&gt;.&lt;/p&gt;
+&lt;p&gt;Then, we’ll use &lt;code class=&quot;highlighter-rouge&quot;&gt;input_fn&lt;/code&gt; to define both the &lt;code class=&quot;highlighter-rouge&quot;&gt;train_input&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;eval_input&lt;/code&gt; functions.  We just need to pass &lt;code class=&quot;highlighter-rouge&quot;&gt;input_fn&lt;/code&gt; the different source files to use for training versus evaluation.
+As we’ll see below, these two functions will be used to define a &lt;code class=&quot;highlighter-rouge&quot;&gt;TrainSpec&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt; used by &lt;code class=&quot;highlighter-rouge&quot;&gt;train_and_evaluate&lt;/code&gt;.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;train_input = lambda: input_fn(
-    TRAIN_FILES,
-    batch_size=40
-)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;train_input&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input_fn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;TRAIN_FILES&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;40&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-# Don't shuffle evaluation data
-eval_input = lambda: input_fn(
-    EVAL_FILES,
-    batch_size=40,
-    shuffle=False
-)
+&lt;span class=&quot;c&quot;&gt;# Don't shuffle evaluation data&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;eval_input&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input_fn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;EVAL_FILES&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;batch_size&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;40&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;shuffle&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;False&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;h2 id=&quot;step-3-define-training-and-eval-specs&quot;&gt;Step 3: Define training and eval specs&lt;/h2&gt;
 
-&lt;p&gt;Now we’re nearly set.  We just need to define the the &lt;code&gt;TrainSpec&lt;/code&gt; and &lt;code&gt;EvalSpec&lt;/code&gt; used by &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;. These specify not only the input functions, but how to export our trained model; that is, how to save it in the standard &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format, so that we can later use it for serving.&lt;/p&gt;
+&lt;p&gt;Now we’re nearly set.  We just need to define the the &lt;code class=&quot;highlighter-rouge&quot;&gt;TrainSpec&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt; used by &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;. These specify not only the input functions, but how to export our trained model; that is, how to save it in the standard &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format, so that we can later use it for serving.&lt;/p&gt;
 
-&lt;p&gt;First, we’ll define the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code&gt;TrainSpec&lt;/code&gt;&lt;/a&gt;, which takes as an arg &lt;code&gt;train_input&lt;/code&gt;:&lt;/p&gt;
+&lt;p&gt;First, we’ll define the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/TrainSpec&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;TrainSpec&lt;/code&gt;&lt;/a&gt;, which takes as an arg &lt;code class=&quot;highlighter-rouge&quot;&gt;train_input&lt;/code&gt;:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;train_spec = tf.estimator.TrainSpec(train_input,
-                                  max_steps=1000
-                                  )
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;train_spec&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TrainSpec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;train_input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                  &lt;span class=&quot;n&quot;&gt;max_steps&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1000&lt;/span&gt;
+                                  &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;For our &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;, we’ll instantiate it with something additional – a list of &lt;em&gt;exporters&lt;/em&gt;, that specify how to export (save) the trained model so that it can be used for serving with respect to a particular data input format. Here we’ll just define one such exporter.&lt;/p&gt;
+&lt;p&gt;For our &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/EvalSpec&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt;&lt;/a&gt;, we’ll instantiate it with something additional – a list of &lt;em&gt;exporters&lt;/em&gt;, that specify how to export (save) the trained model so that it can be used for serving with respect to a particular data input format. Here we’ll just define one such exporter.&lt;/p&gt;
 
 &lt;p&gt;To specify our exporter, we must first define a
 &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model#preparing_serving_inputs&quot;&gt;&lt;em&gt;serving input function&lt;/em&gt;&lt;/a&gt;.
 This is what determines the input format that the exporter will accept.
-As we saw above, during training, an &lt;code&gt;input_fn()&lt;/code&gt; ingests data and prepares it for use by the model.
-At serving time, similarly, a &lt;code&gt;serving_input_receiver_fn()&lt;/code&gt; accepts inference requests and prepares them for the model. This function has the following purposes:&lt;/p&gt;
+As we saw above, during training, an &lt;code class=&quot;highlighter-rouge&quot;&gt;input_fn()&lt;/code&gt; ingests data and prepares it for use by the model.
+At serving time, similarly, a &lt;code class=&quot;highlighter-rouge&quot;&gt;serving_input_receiver_fn()&lt;/code&gt; accepts inference requests and prepares them for the model. This function has the following purposes:&lt;/p&gt;
 
 &lt;ul&gt;
   &lt;li&gt;To add placeholders to the model graph that the serving system will feed with inference requests.&lt;/li&gt;
   &lt;li&gt;To add any additional ops needed to convert data from the input format into the feature Tensors expected by the model.&lt;/li&gt;
 &lt;/ul&gt;
 
-&lt;p&gt;The serving input function should return a &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/export/ServingInputReceiver&quot;&gt;&lt;code&gt;tf.estimator.export.ServingInputReceiver&lt;/code&gt;&lt;/a&gt; object, which packages the placeholders and the resulting feature &lt;code&gt;Tensors&lt;/code&gt; together.&lt;/p&gt;
+&lt;p&gt;The serving input function should return a &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/export/ServingInputReceiver&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.export.ServingInputReceiver&lt;/code&gt;&lt;/a&gt; object, which packages the placeholders and the resulting feature &lt;code class=&quot;highlighter-rouge&quot;&gt;Tensors&lt;/code&gt; together.&lt;/p&gt;
 
-&lt;p&gt;A &lt;code&gt;ServingInputReceiver&lt;/code&gt; is instantiated with two arguments — &lt;code&gt;features&lt;/code&gt; and &lt;code&gt;receiver_tensors&lt;/code&gt;. The &lt;code&gt;features&lt;/code&gt; represent the inputs to our Estimator when it is being served for prediction. The &lt;code&gt;receiver_tensors&lt;/code&gt; represent inputs to the server.&lt;/p&gt;
+&lt;p&gt;A &lt;code class=&quot;highlighter-rouge&quot;&gt;ServingInputReceiver&lt;/code&gt; is instantiated with two arguments — &lt;code class=&quot;highlighter-rouge&quot;&gt;features&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;receiver_tensors&lt;/code&gt;. The &lt;code class=&quot;highlighter-rouge&quot;&gt;features&lt;/code&gt; represent the inputs to our Estimator when it is being served for prediction. The &lt;code class=&quot;highlighter-rouge&quot;&gt;receiver_tensors&lt;/code&gt; represent inputs to the server.&lt;/p&gt;
 
 &lt;p&gt;These two arguments will not necessarily always be the same — in some cases we may want to perform some transformation(s) before feeding the data to the model. &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloudml-samples/blob/master/census/estimator/trainer/model.py#L197&quot;&gt;Here’s&lt;/a&gt; one example of that, where the inputs to the server (csv-formatted rows) include a field to be removed.&lt;/p&gt;
 
 &lt;p&gt;However, in our case, the inputs to the server are the same as the features input to the model. Here’s what our serving input function looks like:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;def json_serving_input_fn():
-  &quot;&quot;&quot;Build the serving inputs.&quot;&quot;&quot;
-  inputs = {}
-  for feat in INPUT_COLUMNS:
-    inputs[feat.name] = tf.placeholder(shape=[None], dtype=feat.dtype)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;json_serving_input_fn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Build the serving inputs.&quot;&quot;&quot;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;inputs&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{}&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;feat&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;INPUT_COLUMNS&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;inputs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;feat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;placeholder&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;shape&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dtype&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;feat&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dtype&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-  return tf.estimator.export.ServingInputReceiver(inputs, inputs)
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;export&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ServingInputReceiver&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;inputs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;inputs&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;Then, we define an &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/Exporter&quot;&gt;Exporter&lt;/a&gt; in terms of that serving input function. It will export the model in &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format. We pass the &lt;code&gt;EvalSpec&lt;/code&gt; constructor a list of exporters (here, just one).&lt;/p&gt;
+&lt;p&gt;Then, we define an &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/Exporter&quot;&gt;Exporter&lt;/a&gt; in terms of that serving input function. It will export the model in &lt;a href=&quot;https://www.tensorflow.org/programmers_guide/saved_model&quot;&gt;SavedModel&lt;/a&gt; format. We pass the &lt;code class=&quot;highlighter-rouge&quot;&gt;EvalSpec&lt;/code&gt; constructor a list of exporters (here, just one).&lt;/p&gt;
 
 &lt;p&gt;Here, we’re using
-the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/FinalExporter&quot;&gt;&lt;code&gt;FinalExporter&lt;/code&gt;&lt;/a&gt; class.  This class performs a single export at the end of training. This is in contrast to
-&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/LatestExporter&quot;&gt;&lt;code&gt;LatestExporter&lt;/code&gt;&lt;/a&gt;, which does regular exports and retains the last &lt;code&gt;N&lt;/code&gt;. (We’re just using one exporter here, but if you define multiple exporters, training will result in multiple saved models).&lt;/p&gt;
+the &lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/FinalExporter&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;FinalExporter&lt;/code&gt;&lt;/a&gt; class.  This class performs a single export at the end of training. This is in contrast to
+&lt;a href=&quot;https://www.tensorflow.org/api_docs/python/tf/estimator/LatestExporter&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;LatestExporter&lt;/code&gt;&lt;/a&gt;, which does regular exports and retains the last &lt;code class=&quot;highlighter-rouge&quot;&gt;N&lt;/code&gt;. (We’re just using one exporter here, but if you define multiple exporters, training will result in multiple saved models).&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;exporter = tf.estimator.FinalExporter('census',
-      json_serving_input_fn)
-eval_spec = tf.estimator.EvalSpec(eval_input,
-                                steps=100,
-                                exporters=[exporter],
-                                name='census-eval'
-                                )
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;exporter&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;FinalExporter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'census'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;json_serving_input_fn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;eval_spec&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;EvalSpec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;eval_input&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                &lt;span class=&quot;n&quot;&gt;steps&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;100&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                &lt;span class=&quot;n&quot;&gt;exporters&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;exporter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt;
+                                &lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'census-eval'&lt;/span&gt;
+                                &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;h2 id=&quot;step-4-train-your-model-using-trainandevaluate&quot;&gt;Step 4: Train your model using &lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/h2&gt;
+&lt;h2 id=&quot;step-4-train-your-model-using-trainandevaluate&quot;&gt;Step 4: Train your model using &lt;code class=&quot;highlighter-rouge&quot;&gt;train_and_evaluate&lt;/code&gt;&lt;/h2&gt;
 
-&lt;p&gt;Now we have defined everything we need to train and evaluate our model, to and export the trained model for serving, via a call to &lt;strong&gt;&lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;:&lt;/p&gt;
+&lt;p&gt;Now we have defined everything we need to train and evaluate our model, to and export the trained model for serving, via a call to &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;tf.estimator.train_and_evaluate(estimator, train_spec, eval_spec)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;tf&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;train_and_evaluate&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;estimator&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;train_spec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;eval_spec&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;This call will train the model and export the result in a format that is easy to use for prediction!&lt;/p&gt;
 
-&lt;p&gt;With &lt;code&gt;train_and_evaluate&lt;/code&gt;, the training behavior will be consistent whether you run this function in a local/non-distributed context or in a distributed configuration.&lt;/p&gt;
+&lt;p&gt;With &lt;code class=&quot;highlighter-rouge&quot;&gt;train_and_evaluate&lt;/code&gt;, the training behavior will be consistent whether you run this function in a local/non-distributed context or in a distributed configuration.&lt;/p&gt;
 
 &lt;p&gt;The exported trained model can be served on many platforms. You may particularly want to consider ways to scalably serve your model, in order to handle many prediction requests at once— say if you’re using your model in an app you’re building, and you expect it to become popular. &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/prediction-overview&quot;&gt;Cloud ML Engine online prediction&lt;/a&gt; and &lt;a href=&quot;https://www.tensorflow.org/serving/&quot;&gt;TensorFlow serving&lt;/a&gt;) are two options for doing this.&lt;/p&gt;
 
@@ -299,15 +565,16 @@ eval_spec = tf.estimator.EvalSpec(eval_input,
 &lt;h3 id=&quot;examine-the-signature-of-the-exported-model&quot;&gt;Examine the signature of the exported model.&lt;/h3&gt;
 
 &lt;p&gt;TensorFlow ships with a CLI that allows you to inspect the &lt;em&gt;signature&lt;/em&gt; of exported binary files. This can be useful as a sanity check.
-It’s run as follows, by passing it the path to directory containing the &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/saved_model/README.md&quot;&gt;saved model&lt;/a&gt;, which will be called &lt;code&gt;saved_model.pb&lt;/code&gt;.
-For our model, it will be found under &lt;code&gt;$output_dir/export/census&lt;/code&gt;.  This is because we passed the &lt;code&gt;census&lt;/code&gt; name to our &lt;code&gt;FinalExporter&lt;/code&gt; above.  (&lt;code&gt;$output_dir&lt;/code&gt; was specified when we constructed our Estimator).&lt;/p&gt;
+It’s run as follows, by passing it the path to directory containing the &lt;a href=&quot;https://github.com/tensorflow/tensorflow/blob/master/tensorflow/python/saved_model/README.md&quot;&gt;saved model&lt;/a&gt;, which will be called &lt;code class=&quot;highlighter-rouge&quot;&gt;saved_model.pb&lt;/code&gt;.
+For our model, it will be found under &lt;code class=&quot;highlighter-rouge&quot;&gt;$output_dir/export/census&lt;/code&gt;.  This is because we passed the &lt;code class=&quot;highlighter-rouge&quot;&gt;census&lt;/code&gt; name to our &lt;code class=&quot;highlighter-rouge&quot;&gt;FinalExporter&lt;/code&gt; above.  (&lt;code class=&quot;highlighter-rouge&quot;&gt;$output_dir&lt;/code&gt; was specified when we constructed our Estimator).&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;saved_model_cli show --dir $output_dir/export/census/&amp;lt;timestamp&amp;gt; --tag serve --signature_def predict
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;saved_model_cli show --dir &lt;span class=&quot;nv&quot;&gt;$output_dir&lt;/span&gt;/export/census/&amp;lt;timestamp&amp;gt; --tag serve --signature_def predict
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;The &lt;code&gt;saved_model_cli&lt;/code&gt; command shows us this info (abbreviated for conciseness):&lt;/p&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;saved_model_cli&lt;/code&gt; command shows us this info (abbreviated for conciseness):&lt;/p&gt;
 
-&lt;pre&gt;&lt;code&gt;The given SavedModel SignatureDef contains the following input(s):
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;The given SavedModel SignatureDef contains the following input(s):
 inputs['age'] tensor_info:
     dtype: DT_FLOAT
     shape: (-1)
@@ -348,60 +615,64 @@ outputs['probabilities'] tensor_info:
     name: head/predictions/probabilities:0
 Method name is: tensorflow/serving/predict
 &lt;/code&gt;&lt;/pre&gt;
-&lt;p&gt;Based on our knowledge of &lt;code&gt;DNNLinearCombinedClassifier&lt;/code&gt;, and the input fields we defined, this looks as we expect. (Notice that the model generates multiple outputs).&lt;/p&gt;
+&lt;/div&gt;
+&lt;p&gt;Based on our knowledge of &lt;code class=&quot;highlighter-rouge&quot;&gt;DNNLinearCombinedClassifier&lt;/code&gt;, and the input fields we defined, this looks as we expect. (Notice that the model generates multiple outputs).&lt;/p&gt;
 
 &lt;h3 id=&quot;check-local-prediction-with-gcloud&quot;&gt;Check local prediction with gcloud&lt;/h3&gt;
 
 &lt;p&gt;Another useful sanity check is running local prediction with your trained model. We’ll use the &lt;a href=&quot;https://cloud.google.com/sdk/downloads&quot;&gt;Google Cloud SDK (gcloud)&lt;/a&gt; command-line tool for that.&lt;/p&gt;
 
-&lt;p&gt;We’ll use the example input in &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/test.json&quot;&gt;&lt;code&gt;test.json&lt;/code&gt;&lt;/a&gt; to predict a person’s income bracket based on the features encoded in the &lt;code&gt;test.json&lt;/code&gt; instance. Again, we point to the directory containing the saved model.&lt;/p&gt;
+&lt;p&gt;We’ll use the example input in &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/test.json&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;test.json&lt;/code&gt;&lt;/a&gt; to predict a person’s income bracket based on the features encoded in the &lt;code class=&quot;highlighter-rouge&quot;&gt;test.json&lt;/code&gt; instance. Again, we point to the directory containing the saved model.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine local predict --model-dir $output_dir/export/census/&amp;lt;timestamp&amp;gt; --json-instances test.json
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud ml-engine &lt;span class=&quot;nb&quot;&gt;local &lt;/span&gt;predict --model-dir &lt;span class=&quot;nv&quot;&gt;$output_dir&lt;/span&gt;/export/census/&amp;lt;timestamp&amp;gt; --json-instances test.json
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;pre&gt;&lt;code&gt;CLASS_IDS  CLASSES  LOGISTIC               LOGITS                 PROBABILITIES
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;CLASS_IDS  CLASSES  LOGISTIC               LOGITS                 PROBABILITIES
 [0]        [u'0']   [0.06585630029439926]  [-2.6521551609039307]  [0.9341437220573425, 0.06585630774497986]
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;You can see how the input fields in &lt;code&gt;test.json&lt;/code&gt; correspond to the inputs listed by the &lt;code&gt;saved_model_cli&lt;/code&gt; command above, and how the prediction outputs correspond to the outputs listed by &lt;code&gt;saved_model_cli&lt;/code&gt;.
+&lt;p&gt;You can see how the input fields in &lt;code class=&quot;highlighter-rouge&quot;&gt;test.json&lt;/code&gt; correspond to the inputs listed by the &lt;code class=&quot;highlighter-rouge&quot;&gt;saved_model_cli&lt;/code&gt; command above, and how the prediction outputs correspond to the outputs listed by &lt;code class=&quot;highlighter-rouge&quot;&gt;saved_model_cli&lt;/code&gt;.
 In this model, Class 0 indicates income &amp;lt;= 50k and Class 1 indicates income &amp;gt;50k.&lt;/p&gt;
 
 &lt;h2 id=&quot;using-cloud-ml-engine-for-easy-distributed-training-and-scalable-online-prediction&quot;&gt;Using Cloud ML Engine for easy distributed training and scalable online prediction&lt;/h2&gt;
 
-&lt;p&gt;In the previous section, we looked at how to use &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt; first to train and export a model, and then to make predictions using the trained model.&lt;/p&gt;
+&lt;p&gt;In the previous section, we looked at how to use &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt; first to train and export a model, and then to make predictions using the trained model.&lt;/p&gt;
 
-&lt;p&gt;In this section, we’ll see how easy it is to use the same code — without any changes — to do &lt;strong&gt;distributed training on &lt;a href=&quot;https://cloud.google.com/ml-engine/&quot;&gt;Cloud ML Engine&lt;/a&gt;&lt;/strong&gt;, thanks to the &lt;strong&gt;&lt;code&gt;Estimator&lt;/code&gt;&lt;/strong&gt; class and &lt;strong&gt;&lt;code&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;.  Then we’ll use &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict&quot;&gt;&lt;strong&gt;Cloud ML Engine Online Prediction&lt;/strong&gt;&lt;/a&gt; to scalably serve the trained model.&lt;/p&gt;
+&lt;p&gt;In this section, we’ll see how easy it is to use the same code — without any changes — to do &lt;strong&gt;distributed training on &lt;a href=&quot;https://cloud.google.com/ml-engine/&quot;&gt;Cloud ML Engine&lt;/a&gt;&lt;/strong&gt;, thanks to the &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt;&lt;/strong&gt; class and &lt;strong&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;train_and_evaluate&lt;/code&gt;&lt;/strong&gt;.  Then we’ll use &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict&quot;&gt;&lt;strong&gt;Cloud ML Engine Online Prediction&lt;/strong&gt;&lt;/a&gt; to scalably serve the trained model.&lt;/p&gt;
 
 &lt;p&gt;One advantage of Cloud ML Engine is that there’s no lock-in. You could potentially train your TensorFlow model elsewhere, then deploy to Cloud ML Engine for serving (prediction); or alternately use Cloud ML Engine for distributed training and then serve elsewhere (e.g. with &lt;a href=&quot;https://github.com/tensorflow/serving&quot;&gt;TensorFlow serving&lt;/a&gt;).  Here, we’ll show how to use Cloud ML Engine for both stages.&lt;/p&gt;
 
-&lt;p&gt;To launch a training job on Cloud ML Engine, we can again use &lt;code&gt;gcloud&lt;/code&gt;.  We’ll need to package our code so that it can be deployed, and specify the Python file to run to start the training (&lt;code&gt;--module-name&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;To launch a training job on Cloud ML Engine, we can again use &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt;.  We’ll need to package our code so that it can be deployed, and specify the Python file to run to start the training (&lt;code class=&quot;highlighter-rouge&quot;&gt;--module-name&lt;/code&gt;).&lt;/p&gt;
 
-&lt;p&gt;The &lt;code&gt;trainer&lt;/code&gt; module code is &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/census_train_and_eval/trainer&quot;&gt;here&lt;/a&gt;.
-&lt;code&gt;trainer.task&lt;/code&gt; is the entry point, and when that file is run, it calls &lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;trainer&lt;/code&gt; module code is &lt;a href=&quot;https://github.com/amygdala/code-snippets/tree/master/ml/census_train_and_eval/trainer&quot;&gt;here&lt;/a&gt;.
+&lt;code class=&quot;highlighter-rouge&quot;&gt;trainer.task&lt;/code&gt; is the entry point, and when that file is run, it calls &lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.
 (You can read more about how to package your code &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/packaging-trainer&quot;&gt;here&lt;/a&gt;).&lt;/p&gt;
 
-&lt;p&gt;If we want to, we could test (distributed) training via &lt;code&gt;gcloud&lt;/code&gt; locally first, to make sure that we have everything packaged up correctly. See the accompanying &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt; for details.&lt;/p&gt;
+&lt;p&gt;If we want to, we could test (distributed) training via &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; locally first, to make sure that we have everything packaged up correctly. See the accompanying &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt; for details.&lt;/p&gt;
 
 &lt;p&gt;But here, we’ll jump right in to using Cloud ML Engine to do cloud-based distributed training.&lt;/p&gt;
 
-&lt;p&gt;We’ll set the training job to use the &lt;code&gt;SCALE_TIER_STANDARD_1&lt;/code&gt; scale spec.  This &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/training-overview#job_configuration_parameters&quot;&gt;gives us&lt;/a&gt; one ‘master’ instance, plus four &lt;em&gt;workers&lt;/em&gt; and three &lt;em&gt;parameter servers&lt;/em&gt;.&lt;/p&gt;
+&lt;p&gt;We’ll set the training job to use the &lt;code class=&quot;highlighter-rouge&quot;&gt;SCALE_TIER_STANDARD_1&lt;/code&gt; scale spec.  This &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/training-overview#job_configuration_parameters&quot;&gt;gives us&lt;/a&gt; one ‘master’ instance, plus four &lt;em&gt;workers&lt;/em&gt; and three &lt;em&gt;parameter servers&lt;/em&gt;.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine jobs submit training $JOB_NAME --scale-tier `SCALE_TIER_STANDARD_1` \
-    --runtime-version 1.4 --job-dir $GCS_JOB_DIR \
-    --module-name trainer.task --package-path trainer/ \
-    --region us-central1 \
-    -- --train-steps 5000 --train-files $GCS_TRAIN_FILE --eval-files $GCS_EVAL_FILE --eval-steps 100
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud ml-engine &lt;span class=&quot;nb&quot;&gt;jobs &lt;/span&gt;submit training &lt;span class=&quot;nv&quot;&gt;$JOB_NAME&lt;/span&gt; --scale-tier &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;SCALE_TIER_STANDARD_1&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --runtime-version 1.4 --job-dir &lt;span class=&quot;nv&quot;&gt;$GCS_JOB_DIR&lt;/span&gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --module-name trainer.task --package-path trainer/ &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --region us-central1 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    -- --train-steps 5000 --train-files &lt;span class=&quot;nv&quot;&gt;$GCS_TRAIN_FILE&lt;/span&gt; --eval-files &lt;span class=&quot;nv&quot;&gt;$GCS_EVAL_FILE&lt;/span&gt; --eval-steps 100
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;The cool thing about this is that &lt;strong&gt;we don’t need to change our code at all to use this distributed config&lt;/strong&gt;.  Our use of the Estimator class in conjunction with the Cloud ML Engine scale specification makes the distributed training config transparent to us — it just works.
-Further, we could swap in any of the other predefined scale tiers (say &lt;code&gt;BASIC_GPU&lt;/code&gt;), or define our own custom cluster, again without any code changes.
+Further, we could swap in any of the other predefined scale tiers (say &lt;code class=&quot;highlighter-rouge&quot;&gt;BASIC_GPU&lt;/code&gt;), or define our own custom cluster, again without any code changes.
 For example, we could alternatively &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Train-on-CMLE-using-a-custom-GPU-cluster&quot;&gt;configure our job&lt;/a&gt; to &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/using-gpus&quot;&gt;use a GPU cluster&lt;/a&gt;.&lt;/p&gt;
 
 &lt;p&gt;Once our training job is running, we can stream its logs to the terminal, and/or monitor it in the &lt;a href=&quot;https://console.cloud.google.com/mlengine/jobs&quot;&gt;Cloud Console&lt;/a&gt;.&lt;/p&gt;
 
 &lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_jobs.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_jobs.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
 
-&lt;p&gt;In the logs, you’ll see output from the multiple worker replicas and parameter servers that we utilized by specifying a &lt;code&gt;SCALE_TIER_STANDARD_1 &lt;/code&gt; cluster.  In the logs viewers, you can filter on the output of a particular node (e.g. a given worker) if you like.&lt;/p&gt;
+&lt;p&gt;In the logs, you’ll see output from the multiple worker replicas and parameter servers that we utilized by specifying a &lt;code class=&quot;highlighter-rouge&quot;&gt;SCALE_TIER_STANDARD_1 &lt;/code&gt; cluster.  In the logs viewers, you can filter on the output of a particular node (e.g. a given worker) if you like.&lt;/p&gt;
 
 &lt;p&gt;Once your job is finished, you’ll find the exported model under the specified GCS directory, in addition to other data such as model checkpoints.
 That exported model has exactly the same signature as the locally-generated model we looked at above, and can be used in just the same ways.&lt;/p&gt;
@@ -420,21 +691,22 @@ That exported model has exactly the same signature as the locally-generated mode
 
 &lt;p&gt;See the accompanying &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Scalably-serve-your-trained-model-with-CMLE-Online-Prediction&quot;&gt;notebook&lt;/a&gt; for details on how to deploy your model so that you can use it to make predictions.&lt;/p&gt;
 
-&lt;p&gt;Once your model is serving with Cloud ML Engine Online Prediction, you can access it via a REST API.  It’s &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict#requesting_predictions&quot;&gt;easy&lt;/a&gt; to do this programmatically via the Google &lt;a href=&quot;https://cloud.google.com/apis/docs/cloud-client-libraries&quot;&gt;Cloud Client libraries&lt;/a&gt; or via &lt;code&gt;gcloud&lt;/code&gt;.  &lt;br /&gt;
-&lt;code&gt;gcloud&lt;/code&gt; is great for testing your deployed model, and the command looks almost the same as it did for the local version of the model:&lt;/p&gt;
+&lt;p&gt;Once your model is serving with Cloud ML Engine Online Prediction, you can access it via a REST API.  It’s &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/online-predict#requesting_predictions&quot;&gt;easy&lt;/a&gt; to do this programmatically via the Google &lt;a href=&quot;https://cloud.google.com/apis/docs/cloud-client-libraries&quot;&gt;Cloud Client libraries&lt;/a&gt; or via &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt;.  &lt;br /&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; is great for testing your deployed model, and the command looks almost the same as it did for the local version of the model:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud ml-engine predict --model census --version v1 --json-instances test.json
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud ml-engine predict --model census --version v1 --json-instances test.json
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;The Cloud Console makes it easy to inspect the different versions of a model, as well as set the default version: &lt;a href=&quot;https://console.cloud.google.com/mlengine/models&quot;&gt;console.cloud.google.com/mlengine/models&lt;/a&gt;.
-You can list your model information using &lt;code&gt;gcloud&lt;/code&gt; too.&lt;/p&gt;
+You can list your model information using &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; too.&lt;/p&gt;
 
 &lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_model_details.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/census_train_eval/ml_model_details.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
 
 &lt;h2 id=&quot;summary--and-whats-next&quot;&gt;Summary — and what’s next?&lt;/h2&gt;
 
-&lt;p&gt;In this post, we’ve walked through how to configure and use the TensorFlow &lt;code&gt;Estimator&lt;/code&gt; class, and
-&lt;code&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  They enable distributed execution for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
+&lt;p&gt;In this post, we’ve walked through how to configure and use the TensorFlow &lt;code class=&quot;highlighter-rouge&quot;&gt;Estimator&lt;/code&gt; class, and
+&lt;code class=&quot;highlighter-rouge&quot;&gt;tf.estimator.train_and_evaluate&lt;/code&gt;.  They enable distributed execution for training and evaluation, while also supporting local execution, and provides consistent behavior across both local/non-distributed and distributed configurations.&lt;/p&gt;
 
 &lt;p&gt;For more, see the accompanying &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb&quot;&gt;notebook&lt;/a&gt;.  The notebook includes examples of &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Train-on-CMLE-using-a-custom-GPU-cluster&quot;&gt;how to run your training job on a Cloud ML Engine GPU cluster&lt;/a&gt;, and &lt;a href=&quot;https://nbviewer.jupyter.org/github/amygdala/code-snippets/blob/master/ml/census_train_and_eval/using_tf.estimator.train_and_evaluate.ipynb#Extras:-Use-Hyperparameter-Tuning&quot;&gt;how to use Cloud ML Engine to do&lt;/a&gt; &lt;a href=&quot;https://cloud.google.com/ml-engine/docs/hyperparameter-tuning-overview&quot;&gt;hyperparameter tuning&lt;/a&gt;.&lt;/p&gt;
 
@@ -474,7 +746,7 @@ jobs and many other data processing and analysis tasks.&lt;/p&gt;
 used a &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/&quot;&gt;GAE Flexible&lt;/a&gt;
 &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/an-overview-of-app-engine#services_the_building_blocks_of_app_engine&quot;&gt;service&lt;/a&gt; 
 to periodically launch a Python Dataflow pipeline.  The use of GAE Flex was necessary at the time, because we needed
-to install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;&lt;code&gt;gcloud&lt;/code&gt; sdk&lt;/a&gt; in the instance container(s) in order to launch the pipelines.&lt;/p&gt;
+to install the &lt;a href=&quot;https://cloud.google.com/sdk/&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk&lt;/a&gt; in the instance container(s) in order to launch the pipelines.&lt;/p&gt;
 
 &lt;p&gt;Since then, Cloud Dataflow &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/overview&quot;&gt;templates&lt;/a&gt; have come into the
 picture for the Python SDK. Dataflow templates allow you to stage your pipelines on
@@ -485,13 +757,13 @@ This has a number of benefits:&lt;/p&gt;
   &lt;li&gt;With templates, you don’t have to recompile your code every time you execute a pipeline.&lt;/li&gt;
   &lt;li&gt;This means that you don’t need to launch your pipeline from a development environment or worry about dependencies.&lt;/li&gt;
   &lt;li&gt;It’s much easier for non-technical users to launch pipelines using templates.  You can launch via 
-the &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Google Cloud Platform Console&lt;/a&gt;, the &lt;code&gt;gcloud&lt;/code&gt; command-line interface, or the REST API.&lt;/li&gt;
+the &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Google Cloud Platform Console&lt;/a&gt;, the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; command-line interface, or the REST API.&lt;/li&gt;
 &lt;/ul&gt;
 
 &lt;p&gt;In this post, we’ll show how to use the Dataflow job template
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/reference/rest/#collection-v1b3projectslocationstemplates&quot;&gt;REST API&lt;/a&gt;
 to periodically launch a Dataflow templated job from GAE.  Because we’re now simply calling an
-API, and no longer relying on the &lt;code&gt;gcloud&lt;/code&gt; sdk to launch from App Engine, we can build a simpler &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/&quot;&gt;App Engine
+API, and no longer relying on the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk to launch from App Engine, we can build a simpler &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/&quot;&gt;App Engine
 Standard&lt;/a&gt; app.&lt;/p&gt;
 
 &lt;p&gt;With templates, you can use
@@ -513,7 +785,7 @@ The pipeline does several sorts of analysis on the tweet data; for example, it i
 
 &lt;p&gt;The first step in building our app is creating a Dataflow template. We do this by building a pipeline and then
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/creating-templates#creating-and-staging-templates&quot;&gt;deploying&lt;/a&gt;
-it with the &lt;code&gt;--template_location&lt;/code&gt; flag, which causes the template to be compiled and stored at the given
+it with the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, which causes the template to be compiled and stored at the given
 &lt;a href=&quot;https://cloud.google.com/storage/&quot;&gt;Google Cloud Storage (GCS)&lt;/a&gt; location.&lt;/p&gt;
 
 &lt;p&gt;You can see the pipeline definition &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/dfpipe/pipe.py&quot;&gt;here&lt;/a&gt;.
@@ -533,45 +805,48 @@ goes into a bit more detail about what some of the pipeline steps do, and how th
 
 &lt;p&gt;As part of our new template-ready pipeline definition, we’ll specify that the pipeline takes a
 &lt;a href=&quot;https://cloud.google.com/dataflow/docs/templates/creating-templates#modifying-your-code-to-use-runtime-parameters&quot;&gt;runtime argument&lt;/a&gt;, 
-named &lt;code&gt;timestamp&lt;/code&gt;. This value is used to filter out tweets N days older than the timestamp, so that the pipeline analyzes
+named &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;. This value is used to filter out tweets N days older than the timestamp, so that the pipeline analyzes
 only recent activity.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;class UserOptions(PipelineOptions):
-    @classmethod
-    def _add_argparse_args(cls, parser):
-      parser.add_value_provider_argument('--timestamp', type=str)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;UserOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PipelineOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;nd&quot;&gt;@classmethod&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;_add_argparse_args&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;cls&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;parser&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;parser&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;add_value_provider_argument&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'--timestamp'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Then, that argument can be accessed at runtime from a template-generated pipeline, as in this snippet:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  user_options = pipeline_options.view_as(UserOptions)
-  ...
-  wc_records = top_percents | 'format' &amp;gt;&amp;gt; beam.FlatMap(
-      lambda x: [{'word': xx[0], 'percent': xx[1], 
-                  'ts': user_options.timestamp.get()} for xx in x])
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;n&quot;&gt;user_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;view_as&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;UserOptions&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;wc_records&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;top_percents&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'format'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;FlatMap&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+      &lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'word'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;0&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'percent'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;],&lt;/span&gt; 
+                  &lt;span class=&quot;s&quot;&gt;'ts'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;user_options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timestamp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()}&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;xx&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;])&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;The example includes a template creation utility script called &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/create_template.py&quot;&gt;&lt;code&gt;create_template.py&lt;/code&gt;&lt;/a&gt;, which
-sets some pipeline options, including the &lt;code&gt;--template_location&lt;/code&gt; flag, defines the pipeline (via &lt;code&gt;pipe.process_datastore_tweets()&lt;/code&gt;), and calls &lt;code&gt;run()&lt;/code&gt; on it. The core of this script is shown below.
-Note that the &lt;code&gt;pipeline_options&lt;/code&gt; dict doesn’t include &lt;code&gt;timestamp&lt;/code&gt;; we’ll define that
+&lt;p&gt;The example includes a template creation utility script called &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/create_template.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;create_template.py&lt;/code&gt;&lt;/a&gt;, which
+sets some pipeline options, including the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, defines the pipeline (via &lt;code class=&quot;highlighter-rouge&quot;&gt;pipe.process_datastore_tweets()&lt;/code&gt;), and calls &lt;code class=&quot;highlighter-rouge&quot;&gt;run()&lt;/code&gt; on it. The core of this script is shown below.
+Note that the &lt;code class=&quot;highlighter-rouge&quot;&gt;pipeline_options&lt;/code&gt; dict doesn’t include &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;; we’ll define that
 at runtime, not compile time.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;import dfpipe.pipe as pipe
-...
-pipeline_options = {
-    'project': PROJECT,
-    'staging_location': 'gs://' + BUCKET + '/staging',
-    'runner': 'DataflowRunner',
-    'setup_file': './setup.py',
-    'job_name': PROJECT + '-twcount',
-    'temp_location': 'gs://' + BUCKET + '/temp',
-    'template_location': 'gs://' + BUCKET + '/templates/' + PROJECT + '-twproc_tmpl'
-}
-pipeline_options = PipelineOptions.from_dictionary(pipeline_options)
-pipe.process_datastore_tweets(PROJECT, DATASET, pipeline_options)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;dfpipe.pipe&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;pipe&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'project'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'staging_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/staging'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'runner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'DataflowRunner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'setup_file'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'./setup.py'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'job_name'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twcount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'temp_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/temp'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;'template_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/templates/'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twproc_tmpl'&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PipelineOptions&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;from_dictionary&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;n&quot;&gt;pipe&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;process_datastore_tweets&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;DATASET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;Because we used the &lt;code&gt;--template_location&lt;/code&gt; flag, a template for that pipeline
+&lt;p&gt;Because we used the &lt;code class=&quot;highlighter-rouge&quot;&gt;--template_location&lt;/code&gt; flag, a template for that pipeline
 is compiled and saved to the indicated GCS location (rather than triggering a run of the pipeline).&lt;/p&gt;
 
 &lt;p&gt;Now that the template is created, we can use it to launch Dataflow pipeline jobs from our GAE app.&lt;/p&gt;
@@ -582,20 +857,20 @@ is compiled and saved to the indicated GCS location (rather than triggering a ru
 in the documentation, the Dataflow Python SDK does not yet support the use of runtime parameters with Datastore input.&lt;/p&gt;
 
 &lt;p&gt;For pipeline analysis, we want to consider only Datastore data from the last N days.
-But, because of the above constraint, we can’t access the runtime &lt;code&gt;timestamp&lt;/code&gt; parameter when we’re constructing the
+But, because of the above constraint, we can’t access the runtime &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt; parameter when we’re constructing the
 Datastore reader query. (If you try, you will see a compile-time error). Similarly, if you try the approach taken by
 the non-template version of the pipeline &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;here&lt;/a&gt;,
-which uses &lt;code&gt;datetime.datetime.now()&lt;/code&gt; to construct its Datastore query, you’ll find that you’re always using the same
+which uses &lt;code class=&quot;highlighter-rouge&quot;&gt;datetime.datetime.now()&lt;/code&gt; to construct its Datastore query, you’ll find that you’re always using the same
 compile-time static timestamp each time you run the template.&lt;/p&gt;
 
 &lt;p&gt;To work around this for the template version of this pipeline, we will include a filter step, that &lt;em&gt;can&lt;/em&gt; access runtime parameters, and which filters out all but the last N days of tweets post-query.
-You can see this step as &lt;code&gt;FilterDate&lt;/code&gt; in the Dataflow pipeline graph figure above.&lt;/p&gt;
+You can see this step as &lt;code class=&quot;highlighter-rouge&quot;&gt;FilterDate&lt;/code&gt; in the Dataflow pipeline graph figure above.&lt;/p&gt;
 
 &lt;h3 id=&quot;launching-a-dataflow-templated-job-from-the-cloud-console&quot;&gt;Launching a Dataflow templated job from the Cloud Console&lt;/h3&gt;
 
 &lt;p&gt;Before we actually deploy the GAE app, let’s check that we can launch a properly running Dataflow templated job
 from our newly generated template. We can do that by launching a job based on that template from &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Cloud
-Console&lt;/a&gt;.  (You could also do this via the &lt;code&gt;gcloud&lt;/code&gt; command-line tool). Note that the
+Console&lt;/a&gt;.  (You could also do this via the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; command-line tool). Note that the
 pipeline won’t do anything interesting unless you already have Tweet data in the Datastore— which would be the case if
 you tried the &lt;a href=&quot;http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html&quot;&gt;earlier example&lt;/a&gt; in this
 series— but you can still confirm that it launches and runs successfully.&lt;/p&gt;
@@ -609,16 +884,16 @@ Template”.&lt;/p&gt;
 &lt;/figure&gt;
 
 &lt;p&gt;Select “Custom Template”, then browse to your new template’s location in GCS. This info was output when you ran
-&lt;code&gt;create_template.py&lt;/code&gt;. (The pulldown menu also includes some predefined templates that you may want to explore later).&lt;/p&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;create_template.py&lt;/code&gt;. (The pulldown menu also includes some predefined templates that you may want to explore later).&lt;/p&gt;
 
 &lt;figure&gt;
     &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/job_templates2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/job_templates2.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
     &lt;figcaption&gt;&lt;i&gt;Select &quot;Custom Template&quot;, and specify the path to the template file.&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
-&lt;p&gt;Finally, set your pipeline’s defined runtime parameter(s). In this case, we have one: &lt;code&gt;timestamp&lt;/code&gt;. The pipeline is
+&lt;p&gt;Finally, set your pipeline’s defined runtime parameter(s). In this case, we have one: &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt;. The pipeline is
 expecting a value in a format like this:&lt;br /&gt;
-&lt;code&gt;2017-10-22 10:18:13.491543&lt;/code&gt; (you can generate such a string in the Python interpreter via &lt;code&gt;str(datetime.datetime.now())&lt;/code&gt;).&lt;/p&gt;
+&lt;code class=&quot;highlighter-rouge&quot;&gt;2017-10-22 10:18:13.491543&lt;/code&gt; (you can generate such a string in the Python interpreter via &lt;code class=&quot;highlighter-rouge&quot;&gt;str(datetime.datetime.now())&lt;/code&gt;).&lt;/p&gt;
 
 &lt;figure&gt;
     &lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/job_templates3.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/job_templates3.png&quot; width=&quot;400&quot; /&gt;&lt;/a&gt;
@@ -640,53 +915,55 @@ run that handler periodically via a GAE cron.
 We’ll use another handler of the same app to periodically fetch tweets and store them in the Datastore.&lt;/p&gt;
 
 &lt;p&gt;You can see the GAE app script &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/job_template_launch/main.py&quot;&gt;here&lt;/a&gt;.&lt;br /&gt;
-The &lt;code&gt;FetchTweets&lt;/code&gt; handler fetches tweets and stores them in the Datastore.
+The &lt;code class=&quot;highlighter-rouge&quot;&gt;FetchTweets&lt;/code&gt; handler fetches tweets and stores them in the Datastore.
 See the &lt;a href=&quot;http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html&quot;&gt;previous post&lt;/a&gt; in this series for a bit more info on that.  However, this part of the app is just
 for example purposes; in your own apps, you probably already have some other means of collecting and storing data in Datastore.&lt;/p&gt;
 
-&lt;p&gt;The &lt;code&gt;LaunchJob&lt;/code&gt; handler is the new piece of the puzzle: using the Dataflow REST API, it sets the &lt;code&gt;timestamp&lt;/code&gt; runtime parameter, and launches a Dataflow job using the template.&lt;/p&gt;
+&lt;p&gt;The &lt;code class=&quot;highlighter-rouge&quot;&gt;LaunchJob&lt;/code&gt; handler is the new piece of the puzzle: using the Dataflow REST API, it sets the &lt;code class=&quot;highlighter-rouge&quot;&gt;timestamp&lt;/code&gt; runtime parameter, and launches a Dataflow job using the template.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from googleapiclient.discovery import build
-from oauth2client.client import GoogleCredentials
-...
-    credentials = GoogleCredentials.get_application_default()
-    service = build('dataflow', 'v1b3', credentials=credentials)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;googleapiclient.discovery&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;oauth2client.client&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;
+&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_application_default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;service&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'dataflow'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'v1b3'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-    BODY = {
-            &quot;jobName&quot;: &quot;{jobname}&quot;.format(jobname=JOBNAME),
-            &quot;gcsPath&quot;: &quot;gs://{bucket}/templates/{template}&quot;.format(
-                bucket=BUCKET, template=TEMPLATE),
-            &quot;parameters&quot;: {&quot;timestamp&quot;: str(datetime.datetime.utcnow())},
-             &quot;environment&quot;: {
-                &quot;tempLocation&quot;: &quot;gs://{bucket}/temp&quot;.format(bucket=BUCKET),
-                &quot;zone&quot;: &quot;us-central1-f&quot;
-             }
-        }
+    &lt;span class=&quot;n&quot;&gt;BODY&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;&quot;jobName&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;{jobname}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;jobname&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;JOBNAME&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;&quot;gcsPath&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;gs://{bucket}/templates/{template}&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+                &lt;span class=&quot;n&quot;&gt;bucket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;template&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TEMPLATE&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+            &lt;span class=&quot;s&quot;&gt;&quot;parameters&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;&quot;timestamp&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;str&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;utcnow&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())},&lt;/span&gt;
+             &lt;span class=&quot;s&quot;&gt;&quot;environment&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+                &lt;span class=&quot;s&quot;&gt;&quot;tempLocation&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;gs://{bucket}/temp&quot;&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;bucket&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+                &lt;span class=&quot;s&quot;&gt;&quot;zone&quot;&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;&quot;us-central1-f&quot;&lt;/span&gt;
+             &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
+        &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
 
-    dfrequest = service.projects().templates().create(
-        projectId=PROJECT, body=BODY)
-    dfresponse = dfrequest.execute()
-    logging.info(dfresponse)
-    self.response.write('Done')
+    &lt;span class=&quot;n&quot;&gt;dfrequest&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;service&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;projects&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;templates&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;create&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+        &lt;span class=&quot;n&quot;&gt;projectId&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;BODY&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;dfresponse&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;dfrequest&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;logging&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;info&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;dfresponse&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;response&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;write&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Done'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;h2 id=&quot;launching-the-dataflow-pipeline-periodically-using-a-gae-cron&quot;&gt;Launching the Dataflow pipeline periodically using a GAE cron&lt;/h2&gt;
 
 &lt;p&gt;For our GAE app, we want to launch a Dataflow templated job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis. 
 So, it makes sense to set things using a &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron.yaml&lt;/a&gt; file like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-yaml&quot;&gt;cron:
-- description: fetch tweets
-  url: /timeline
-  schedule: every 17 minutes
-  target: default
-- description: launch dataflow pipeline
-  url: /launchtemplatejob
-  schedule: every 5 hours
-  target: default
+&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;cron&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;fetch tweets&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/timeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 17 minutes&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default&lt;/span&gt;
+&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;launch dataflow pipeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/launchtemplatejob&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 5 hours&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;default&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;A GAE app makes it easy to run such a cron, but note that now that we’re using templates, it becomes easier to to support this functionality in other ways too.  E.g., it would also be straightforward to use the &lt;code&gt;gcloud&lt;/code&gt; CLI to launch the template job, and set up a local cron job.&lt;/p&gt;
+&lt;p&gt;A GAE app makes it easy to run such a cron, but note that now that we’re using templates, it becomes easier to to support this functionality in other ways too.  E.g., it would also be straightforward to use the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; CLI to launch the template job, and set up a local cron job.&lt;/p&gt;
 
 &lt;h2 id=&quot;a-look-at-the-example-results-in-bigquery&quot;&gt;A look at the example results in BigQuery&lt;/h2&gt;
 
@@ -787,32 +1064,33 @@ includes a &lt;a href=&quot;https://github.com/apache/beam/blob/master/sdks/pyth
 
 &lt;h2 id=&quot;building-a-service-to-define-and-launch-a-dataflow-pipeline-from-app-engine&quot;&gt;Building a service to define and launch a Dataflow pipeline from App Engine&lt;/h2&gt;
 
-&lt;p&gt;We’ll use a Flex custom runtime based on the &lt;code&gt;gcr.io/google_appengine/python&lt;/code&gt; image for the service that launches the dataflow pipeline, as we’ll install the &lt;code&gt;gcloud&lt;/code&gt; sdk in the instance container(s).  So, the example includes a &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile&quot;&gt;&lt;code&gt;Dockerfile&lt;/code&gt;&lt;/a&gt; used to deploy the service.  As the last command in the &lt;code&gt;Dockerfile&lt;/code&gt;, we’ll start up a Gunicorn server to serve a Flask app script (&lt;code&gt;main_df.py&lt;/code&gt;).&lt;/p&gt;
+&lt;p&gt;We’ll use a Flex custom runtime based on the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcr.io/google_appengine/python&lt;/code&gt; image for the service that launches the dataflow pipeline, as we’ll install the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt; sdk in the instance container(s).  So, the example includes a &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/Dockerfile&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;&lt;/a&gt; used to deploy the service.  As the last command in the &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;, we’ll start up a Gunicorn server to serve a Flask app script (&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;).&lt;/p&gt;
 
-&lt;p&gt;The Python code for this service consists of the small Flask app script (&lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py&quot;&gt;&lt;code&gt;main_df.py&lt;/code&gt;&lt;/a&gt;), which accesses a module (&lt;code&gt;dfpipe&lt;/code&gt;) that does most of the heavy lifting in terms of defining and launching the example pipeline (in &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;).&lt;/p&gt;
+&lt;p&gt;The Python code for this service consists of the small Flask app script (&lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main_df.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main_df.py&lt;/code&gt;&lt;/a&gt;), which accesses a module (&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt;) that does most of the heavy lifting in terms of defining and launching the example pipeline (in &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;).&lt;/p&gt;
 
 &lt;h3 id=&quot;setting-the-pipeline-options&quot;&gt;Setting the pipeline options&lt;/h3&gt;
 
 &lt;p&gt;As part of the process of launching a Dataflow pipeline, various options may be set.
-In order to make the &lt;code&gt;dfpipe&lt;/code&gt; module available to the Dataflow &lt;em&gt;workers&lt;/em&gt;, the pipeline options include a &lt;code&gt;setup_file&lt;/code&gt; flag.&lt;/p&gt;
+In order to make the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module available to the Dataflow &lt;em&gt;workers&lt;/em&gt;, the pipeline options include a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup_file&lt;/code&gt; flag.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  pipeline_options = {
-      'project': PROJECT,
-      'staging_location': 'gs://' + BUCKET + '/staging',
-      'runner': 'DataflowRunner',
-      'setup_file': './setup.py',
-      'job_name': PROJECT + '-twcount',
-      'max_num_workers': 10,
-      'temp_location': 'gs://' + BUCKET + '/temp'
-  }
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'project'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'staging_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/staging'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'runner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'DataflowRunner'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'setup_file'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'./setup.py'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'job_name'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;PROJECT&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'-twcount'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'max_num_workers'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;10&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'temp_location'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'gs://'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;BUCKET&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;+&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'/temp'&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;}&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;This points to a &lt;code&gt;setup.py&lt;/code&gt; file which specifies to package the &lt;code&gt;dfpipe&lt;/code&gt; module using &lt;code&gt;setuptools&lt;/code&gt;. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
+&lt;p&gt;This points to a &lt;code class=&quot;highlighter-rouge&quot;&gt;setup.py&lt;/code&gt; file which specifies to package the &lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe&lt;/code&gt; module using &lt;code class=&quot;highlighter-rouge&quot;&gt;setuptools&lt;/code&gt;. If our pipeline also had dependencies on third-party libs, we could include those in setup.py as well. 
 The indicated code is  gathered in a package that is built as a source distribution, staged in the staging area for the workflow being run, and then installed in the workers when they start running.&lt;/p&gt;
 
 &lt;h2 id=&quot;a-look-at-the-dataflow-pipeline&quot;&gt;A look at the Dataflow pipeline&lt;/h2&gt;
 
-&lt;p&gt;Now let’s take a quick look at &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, to see what the Python Dataflow pipeline does.&lt;/p&gt;
+&lt;p&gt;Now let’s take a quick look at &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, to see what the Python Dataflow pipeline does.&lt;/p&gt;
 
 &lt;p&gt;It reads recent tweets from the past N days from Cloud Datastore, then
 essentially splits into three processing branches. It finds the top N most popular words in terms of
@@ -826,85 +1104,91 @@ ranking metric.  It writes the results to three BigQuery tables. (It would be eq
 
 &lt;p&gt;This pipeline reads from Datastore, grabbing the tweets that the other GAE Standard service is periodically grabbing and writing to the Datastore.&lt;/p&gt;
 
-&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py&quot;&gt;&lt;code&gt;main.py&lt;/code&gt;&lt;/a&gt;, the app script for the GAE standard service, you can see the Tweet entity schema:&lt;/p&gt;
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/main.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;main.py&lt;/code&gt;&lt;/a&gt;, the app script for the GAE standard service, you can see the Tweet entity schema:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from google.appengine.ext import ndb
-class Tweet(ndb.Model):
-  user = ndb.StringProperty()
-  text = ndb.StringProperty()
-  created_at = ndb.DateTimeProperty()
-  tid = ndb.IntegerProperty()
-  urls = ndb.StringProperty(repeated=True)
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.appengine.ext&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;Tweet&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Model&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;user&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;text&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;created_at&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DateTimeProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;tid&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;IntegerProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;urls&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ndb&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;StringProperty&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;repeated&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;True&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, we can use the &lt;a href=&quot;https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1&quot;&gt;&lt;code&gt;google.cloud.proto.datastore&lt;/code&gt;&lt;/a&gt; API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the &lt;code&gt;created_at&lt;/code&gt; field.&lt;/p&gt;
+&lt;p&gt;In &lt;a href=&quot;https://github.com/amygdala/gae-dataflow/blob/master/sdk_launch/dfpipe/pipe.py&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;dfpipe/pipe.py&lt;/code&gt;&lt;/a&gt;, we can use the &lt;a href=&quot;https://cloud.google.com/datastore/docs/reference/rpc/google.datastore.v1&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;google.cloud.proto.datastore&lt;/code&gt;&lt;/a&gt; API to define a query for Tweet entities more recent than a given date— in this case, four days ago— by creating a property filter on the &lt;code class=&quot;highlighter-rouge&quot;&gt;created_at&lt;/code&gt; field.&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from google.cloud.proto.datastore.v1 import query_pb2
-def make_query(kind):
-  &quot;&quot;&quot;Creates a Cloud Datastore query to retrieve all Tweet entities with a
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;google.cloud.proto.datastore.v1&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Creates a Cloud Datastore query to retrieve all Tweet entities with a
   'created_at' date &amp;gt; N days ago.
-  &quot;&quot;&quot;
-  days = 4
-  now = datetime.datetime.now()
-  earlier = now - datetime.timedelta(days=days)
+  &quot;&quot;&quot;&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;days&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;now&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;now&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;datetime&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;timedelta&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;days&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-  query = query_pb2.Query()
-  query.kind.add().name = kind
-  datastore_helper.set_property_filter(query.filter, 'created_at',
-                                       PropertyFilter.GREATER_THAN,
-                                       earlier)
-  return query
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query_pb2&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;add&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;kind&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;datastore_helper&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_property_filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;filter&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'created_at'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                       &lt;span class=&quot;n&quot;&gt;PropertyFilter&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GREATER_THAN&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+                                       &lt;span class=&quot;n&quot;&gt;earlier&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Then, we use that query to define an input source for the pipeline:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt; p = beam.Pipeline(options=pipeline_options)
-  # Create a query to read entities from datastore.
-  query = make_query('Tweet')
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt; &lt;span class=&quot;n&quot;&gt;p&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Pipeline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;options&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;pipeline_options&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;c&quot;&gt;# Create a query to read entities from datastore.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Tweet'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
 
-  # Read entities from Cloud Datastore into a PCollection.
-  lines = (p
-      | 'read from datastore' &amp;gt;&amp;gt; ReadFromDatastore(project, query, None))
-  ... 
+  &lt;span class=&quot;c&quot;&gt;# Read entities from Cloud Datastore into a PCollection.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;p&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'read from datastore'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ReadFromDatastore&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;query&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt; 
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;We can use &lt;code&gt;properties.get()&lt;/code&gt; on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:&lt;/p&gt;
+&lt;p&gt;We can use &lt;code class=&quot;highlighter-rouge&quot;&gt;properties.get()&lt;/code&gt; on an element of the resulting collection to extract the value of a given field of the entity, in this case the ‘text’ field:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;class WordExtractingDoFn(beam.DoFn):
-  &quot;&quot;&quot;Parse each tweet text into words, removing some 'stopwords'.&quot;&quot;&quot;
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;k&quot;&gt;class&lt;/span&gt; &lt;span class=&quot;nc&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;DoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;&quot;&quot;&quot;Parse each tweet text into words, removing some 'stopwords'.&quot;&quot;&quot;&lt;/span&gt;
 
-  def process(self, element):
-    content_value = element.properties.get('text', None)
-    text_line = ''
-    if content_value:
-      text_line = content_value.string_value
-    words = set([x.lower() for x in re.findall(r'[A-Za-z\']+', text_line)])
-    stopwords = [...]
-    return list(words - set(stopwords))
+  &lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;process&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;bp&quot;&gt;self&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;element&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;properties&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'text'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;bp&quot;&gt;None&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;if&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;content_value&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;string_value&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;([&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lower&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt; &lt;span class=&quot;k&quot;&gt;for&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt; &lt;span class=&quot;ow&quot;&gt;in&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;re&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;findall&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;r'[A-Za-z&lt;/span&gt;&lt;span class=&quot;se&quot;&gt;\'&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;]+'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;text_line&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)])&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]&lt;/span&gt;
+    &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;list&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;words&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;set&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;stopwords&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;Then, this snippet from the pipeline shows how  &lt;code&gt;WordExtractingDoFn&lt;/code&gt; can be used as part of the Datastore input processing:&lt;/p&gt;
+&lt;p&gt;Then, this snippet from the pipeline shows how  &lt;code class=&quot;highlighter-rouge&quot;&gt;WordExtractingDoFn&lt;/code&gt; can be used as part of the Datastore input processing:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;  # Count the occurrences of each word.
-  percents = (lines
-      | 'split' &amp;gt;&amp;gt; (beam.ParDo(WordExtractingDoFn())
-                    .with_output_types(unicode))
-      | 'pair_with_one' &amp;gt;&amp;gt; beam.Map(lambda x: (x, 1))
-      | 'group' &amp;gt;&amp;gt; beam.GroupByKey()
-      | 'count' &amp;gt;&amp;gt; beam.Map(lambda (word, ones): (word, sum(ones)))
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;  &lt;span class=&quot;c&quot;&gt;# Count the occurrences of each word.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;percents&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;lines&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'split'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ParDo&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;WordExtractingDoFn&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+                    &lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;with_output_types&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;unicode&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'pair_with_one'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;x&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;mi&quot;&gt;1&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'group'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;GroupByKey&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+      &lt;span class=&quot;o&quot;&gt;|&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'count'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;&amp;gt;&amp;gt;&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;beam&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;Map&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;k&quot;&gt;lambda&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;word&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;sum&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ones&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)))&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;h2 id=&quot;launching-the-dataflow-pipeline-periodically-using-a-cron-job&quot;&gt;Launching the Dataflow pipeline periodically using a cron job&lt;/h2&gt;
 
 &lt;p&gt;In the example app, we want to launch a pipeline job every few hours, where each job analyzes the tweets from the past few days, providing a ‘moving window’ of analysis.
-So, it makes sense to just set things up as an app &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron&lt;/a&gt; job, which looks like this (&lt;code&gt;backend&lt;/code&gt; is the name of the app service that handles this request, and the &lt;code&gt;url&lt;/code&gt; is the handler that launches the job):&lt;/p&gt;
+So, it makes sense to just set things up as an app &lt;a href=&quot;https://cloud.google.com/appengine/docs/flexible/python/scheduling-jobs-with-cron-yaml&quot;&gt;cron&lt;/a&gt; job, which looks like this (&lt;code class=&quot;highlighter-rouge&quot;&gt;backend&lt;/code&gt; is the name of the app service that handles this request, and the &lt;code class=&quot;highlighter-rouge&quot;&gt;url&lt;/code&gt; is the handler that launches the job):&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-yaml&quot;&gt;cron:
-- description: launch dataflow pipeline
-  url: /launchpipeline
-  schedule: every 5 hours
-  target: backend
+&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;cron&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+&lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;launch dataflow pipeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;url&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;/launchpipeline&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;schedule&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;every 5 hours&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;target&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;backend&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;A pipeline job could of course be triggered by other means as well– e.g. as part of handling a client request to the app, or perhaps via a &lt;a href=&quot;https://cloud.google.com/appengine/docs/standard/python/taskqueue/push/&quot;&gt;Task Queue task&lt;/a&gt;.&lt;/p&gt;
 
@@ -1039,16 +1323,18 @@ to do this preprocessing – that is, the Beam pipeline uses the Inception v3 mo
 
 &lt;p&gt;Once you’ve done that, you can deploy a trained model to Cloud ML like this.  First, “create the model” in Cloud ML – this does not define the actual model, but creates a name to associate with the model once you upload it. For example:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta ml models create hugs
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml models create hugs
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Then, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/model.sh&quot;&gt;deploy a &lt;em&gt;version&lt;/em&gt; of that model&lt;/a&gt; by pointing Cloud ML to the checkpointed model info that was saved as the final result of your training session.
 The command to do that will look something like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;gcloud beta ml versions create v1 \
-  --model hugs \
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud beta ml versions create v1 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+  --model hugs &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
   --origin gs://your-gcs-bucket/path/to/model
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;It will take a few minutes to create the model version. Once that’s done, you can start to access it for prediction in your apps.  Each time you deploy a new version of your model, you will use a new version name.  If you have more than one version of a model, you can set one as the default.&lt;/p&gt;
 
@@ -1071,27 +1357,28 @@ call&lt;sup&gt;&lt;a href=&quot;#footnote1&quot;&gt;1&lt;/a&gt;&lt;/sup&gt; and 
 
 &lt;p&gt;Here is a Python code snippet showing a prediction API call:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-python&quot;&gt;from googleapiclient import discovery
-from oauth2client.client import GoogleCredentials
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;googleapiclient&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;from&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;oauth2client.client&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;
 
-def create_client():
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;create_client&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;():&lt;/span&gt;
 
-  credentials = GoogleCredentials.get_application_default()
-  ml_service = discovery.build(
-      'ml', 'v1beta1', credentials=credentials)
-  return ml_service
+  &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;GoogleCredentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;get_application_default&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;discovery&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;build&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;'ml'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'v1beta1'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;credentials&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;
 
 
-def get_prediction(ml_service, project, model_name, input_image):
-  request_dict = make_request_json(input_image)
-  body = {'instances': [request_dict]}
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;get_prediction&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;make_request_json&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;input_image&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;{&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'instances'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;[&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;request_dict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;]}&lt;/span&gt;
 
-  # This request will use the default model version.
-  parent = 'projects/{}/models/{}'.format(project, model_name)
-  request = ml_service.projects().predict(name=parent, body=body)
-  result = request.execute()
-  return result
+  &lt;span class=&quot;c&quot;&gt;# This request will use the default model version.&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;'projects/{}/models/{}'&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;format&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;model_name&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;ml_service&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;projects&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;predict&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;parent&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;body&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;request&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;execute&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;()&lt;/span&gt;
+  &lt;span class=&quot;k&quot;&gt;return&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;result&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;You can see more detail on how the uploaded image was formatted for the API request, and how the response was 
 parsed, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/master/workshop_sections/transfer_learning/cloudml/web_server/predict_server.py&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
@@ -1108,20 +1395,21 @@ parsed, &lt;a href=&quot;https://github.com/amygdala/tensorflow-workshop/blob/ma
 
 &lt;p&gt;It turns out that if you ask the “flowers” model what kind of flower a hedgehog is, it will classify it pretty confidently as looking most like a dandelion. This seems pretty astute of the flowers model!&lt;/p&gt;
 
-&lt;pre&gt;&lt;code class=&quot;language-sh&quot;&gt;$ python images_to_json.py hedgehog.jpg
-$ gcloud beta ml predict --model flowers --json-instances request.json
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;python images_to_json.py hedgehog.jpg
+&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gcloud beta ml predict --model flowers --json-instances request.json
 KEY                             PREDICTION  SCORES
-prediction_images/hedgehog.jpg  1           [0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
-$ gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
+prediction_images/hedgehog.jpg  1           &lt;span class=&quot;o&quot;&gt;[&lt;/span&gt;0.006916556041687727, 0.9633635878562927, 0.0015918412245810032, 0.005548111163079739, 0.022190041840076447, 0.0003897929273080081]
+&lt;span class=&quot;gp&quot;&gt;$ &lt;/span&gt;gsutil cat gs://cloud-ml-data/img/flower_photos/dict.txt
 daisy
 dandelion
 roses
 sunflowers
 tulips
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
-&lt;p&gt;(We can see this is so because &lt;code&gt;dandelion&lt;/code&gt; is in the ‘1’ index position in the 
-flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the prediction of ‘1’.)&lt;/p&gt;
+&lt;p&gt;(We can see this is so because &lt;code class=&quot;highlighter-rouge&quot;&gt;dandelion&lt;/code&gt; is in the ‘1’ index position in the 
+flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/code&gt;, corresponding to the prediction of ‘1’.)&lt;/p&gt;
 
 &lt;h2 id=&quot;what-next&quot;&gt;What Next?&lt;/h2&gt;
 
@@ -1132,7 +1420,7 @@ flower dataset’s &lt;code&gt;dict.txt&lt;/code&gt;, corresponding to the predi
 &lt;hr /&gt;
 
 &lt;p&gt;&lt;small&gt;
-&lt;span id=&quot;footnote1&quot;&gt;1&lt;/span&gt;: While the prediction service is in alpha, you may sometimes see a &lt;code&gt;502&lt;/code&gt; error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.&lt;/small&gt;&lt;/p&gt;
+&lt;span id=&quot;footnote1&quot;&gt;1&lt;/span&gt;: While the prediction service is in alpha, you may sometimes see a &lt;code class=&quot;highlighter-rouge&quot;&gt;502&lt;/code&gt; error response if you make a request after not having used the service for a while.  If you see this, just resubmit. This will not be an issue once the service moves out of alpha.&lt;/small&gt;&lt;/p&gt;
 
 &lt;p&gt;&lt;small&gt;
 &lt;span id=&quot;footnote2&quot;&gt;2&lt;/span&gt;: It’s possible that this amuses only me.&lt;/small&gt;&lt;/p&gt;
@@ -1230,11 +1518,12 @@ For the most part, the NL slackbot  will keep pretty quiet. Each time there is a
 
 &lt;p&gt;(If you think that this aspect of the bot is a bit annoying, it is easy to disable, or change the threshold, by looking for where it is set &lt;a href=&quot;https://github.com/GoogleCloudPlatform/nodejs-docs-samples/blob/master/language/slackbot/demo_bot.js&quot;&gt;here&lt;/a&gt;).&lt;/p&gt;
 
-&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code&gt;top entities&lt;/code&gt;.
-For example, if your bot is called &lt;code&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
+&lt;p&gt;At any time, you can directly ask the bot for the top entities that it has detected in channel conversation (by default, the top 20 entities over the past week).  You do this by addressing the bot with the words &lt;code class=&quot;highlighter-rouge&quot;&gt;top entities&lt;/code&gt;.
+For example, if your bot is called &lt;code class=&quot;highlighter-rouge&quot;&gt;@nlpbot&lt;/code&gt;, you would ask it like this:&lt;/p&gt;
 
-&lt;pre&gt;&lt;code&gt;@nlpbot top entities
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;@nlpbot top entities
 &lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
 
 &lt;p&gt;Then, the result might look something like the following. (At least, if you have seeded your test channel with a combination of political news and Kubernetes posts :).&lt;/p&gt;
 
@@ -1344,38 +1633,6 @@ The article uses a suite of ‘gaming’ example pipelines that can be found in 
         
         
         <category>Dataflow</category>
-        
-      </item>
-    
-      <item>
-        <title>New sample repos for Symfony and Laravel with the Google App Engine PHP Runtime</title>
-        <description>&lt;p&gt;After the recent &lt;a href=&quot;http://amygdala.github.io/gae/php/2015/03/09/gaephp.html&quot;&gt;updates to the Google App Engine PHP Runtime&lt;/a&gt;, we are creating GAE forks for some of the popular PHP framework starter apps.  These forks contain the modifications for running these apps on App Engine.&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/symfony-standard&quot;&gt;This repository&lt;/a&gt; contains a modified Symfony Standard Edition Starter app for Google App Engine.&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/laravel&quot;&gt;This repository&lt;/a&gt; contains a modified Laravel Starter app for Google App Engine.&lt;/p&gt;
-
-&lt;p&gt;To get started with either one, see the README in the repo.&lt;/p&gt;
-
-&lt;p&gt;You’ll want to first create a Google Cloud project if you don’t already have one. You can do that from &lt;a href=&quot;https://console.developers.google.com/start/appengine&quot;&gt;this page&lt;/a&gt; if you like.  (Note that there is a &lt;a href=&quot;https://console.developers.google.com/billing/freetrial&quot;&gt;free trial&lt;/a&gt; available).&lt;/p&gt;
-
-&lt;p&gt;Then, if you’re not familiar with PHP on App Engine, you might want to follow the &lt;a href=&quot;https://cloud.google.com/appengine/docs/php/gettingstarted/introduction&quot;&gt;PHP Tutorial&lt;/a&gt; first.&lt;/p&gt;
-
-&lt;p&gt;We’re looking forward to your feedback (and/or pull requests)!&lt;/p&gt;
-
-</description>
-        <pubDate>Wed, 20 May 2015 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/gae/php/2015/05/20/gaephp.html</guid>
-        
-        <category>php</category>
-        
-        <category>gae</category>
-        
-        
-        <category>gae</category>
-        
-        <category>php</category>
         
       </item>
     

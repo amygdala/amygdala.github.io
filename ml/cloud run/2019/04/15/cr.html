@@ -86,6 +86,10 @@
         
           
         
+          
+        
+          
+        
       </div>
     </nav>
 
@@ -118,10 +122,11 @@
 
 <p>We can use the same Docker image as used for the Kubernetes app <em>Deployment</em>, and deploy it to Cloud Run instead.  The new code is here (updated from the previous version to reflect API changes): <a href="https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision">https://github.com/amygdala/code-snippets/tree/master/cloud_run/twilio_vision</a>.</p>
 
-<p>The <code>yaml</code> file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:</p>
+<p>The <code class="highlighter-rouge">yaml</code> file for the original Kubernetes app Deployment set some environment variables that were used by the app code.  For the Cloud Run version, we can just set those env variables on the command line when we deploy, like this:</p>
 
-<pre><code class="language-sh">gcloud beta run deploy --image gcr.io/&lt;your_project&gt;/twilio-vision:v1 --update-env-vars MESSAGE_BLURB="Courtesy of the Google Cloud Vision API..."
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud beta run deploy --image gcr.io/&lt;your_project&gt;/twilio-vision:v1 --update-env-vars <span class="nv">MESSAGE_BLURB</span><span class="o">=</span><span class="s2">"Courtesy of the Google Cloud Vision API..."</span>
 </code></pre>
+</div>
 
 <p>Give it a try by texting an image to: <strong>(785) 336-5113</strong>.  (The texted images are not retained by Google Cloud Platform, but are stored temporarily with Twilio).</p>
 
