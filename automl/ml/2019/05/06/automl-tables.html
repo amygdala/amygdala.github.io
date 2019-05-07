@@ -135,7 +135,7 @@
 <p>So, the first thing we’ll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the <a href="https://console.cloud.google.com/bigquery">BigQuery query window</a>, or <a href="https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc">use this URL</a>.</p>
 
 <blockquote>
-  <p>Note: when I ran this query, it processed 15.66 GB of data.</p>
+  <p>Note: when I ran this query, it processed about 15.7 GB of data.</p>
 </blockquote>
 
 <div class="language-sql highlighter-rouge"><pre class="highlight"><code><span class="k">WITH</span>
@@ -201,6 +201,10 @@
 </div>
 
 <p>You can see the use of the <code class="highlighter-rouge">ST_SnapToGrid</code> function to “bucket” the lat/long data. (Currently, AutoML Tables doesn’t support the BigQuery GIS data types, so we’re converting those to text and will treat them categorically). We’re also generating a new euclidean distance measure between pickup and dropoff using the <code class="highlighter-rouge">ST_Distance</code> function.</p>
+
+<blockquote>
+  <p>Note: I also experimented with including the actual pickup and dropoff lat/lng values in the new table in addition to the derived grid values, but — using three hours of training budget— these additional inputs did not help, and in fact resulted in a model with slightly lower accuracy.</p>
+</blockquote>
 
 <p>When the query has finished running, export the results to a table in your own project, by clicking on “Save Results”.</p>
 
