@@ -126,7 +126,9 @@
 
 <p>We can’t directly compare the results of the following AutoML experimentation to those previous examples, since they’re using a different dataset and model architecture. However, we’ll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.</p>
 
-<h3 id="create-a-bigquery-table-for-the-automl-input-dataset">Create a BigQuery table for the AutoML input dataset</h3>
+<p>In the rest of the blog post, we’ll walk through how to do that.</p>
+
+<h3 id="step-1-create-a-bigquery-table-for-the-automl-input-dataset">Step 1: Create a BigQuery table for the AutoML input dataset</h3>
 
 <p>AutoML Tables makes it easy to ingest data from <a href="https://cloud.google.com/bigquery/">BigQuery</a>.</p>
 
@@ -215,7 +217,7 @@
 
 <p></p>
 
-<h3 id="import-your-new-table-as-an-automl-dataset">Import your new table as an AutoML dataset</h3>
+<h3 id="step-2-import-your-new-table-as-an-automl-dataset">Step 2: Import your new table as an AutoML dataset</h3>
 
 <p>Then, return to the <a href="https://console.cloud.google.com/automl-tables/datasets">AutoML panel in the Cloud Console</a>, and import your new table (the one in your own project), as a new AutoML Tables dataset.</p>
 
@@ -226,7 +228,7 @@
 
 <p></p>
 
-<h3 id="specify-a-schema-and-launch-the-automl-model-training-job">Specify a schema, and launch the AutoML model training job</h3>
+<h3 id="step-3-specify-a-schema-and-launch-the-automl-model-training-job">Step 3: Specify a schema, and launch the AutoML model training job</h3>
 
 <p>After the import has completed, you’ll next specify a schema for your dataset. Here is where you indicate which column is your ‘target’ (what you’d like to learn to predict), as well as the column types.</p>
 
@@ -298,7 +300,7 @@ the <code class="highlighter-rouge">trip_total</code>. This value is correlated 
 
 <p></p>
 
-<h3 id="use-your-new-model-for-prediction">Use your new model for prediction</h3>
+<h3 id="step-4-use-your-new-model-for-prediction">Step 4: Use your new model for prediction</h3>
 
 <p>Once you’ve trained your model, you can use it for prediction. You can opt to use a BigQuery table or Google Cloud Storage (GCS) files for both input sources and outputs.</p>
 

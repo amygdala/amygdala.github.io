@@ -5,8 +5,8 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Mon, 06 May 2019 17:46:48 -0700</pubDate>
-    <lastBuildDate>Mon, 06 May 2019 17:46:48 -0700</lastBuildDate>
+    <pubDate>Mon, 06 May 2019 17:53:24 -0700</pubDate>
+    <lastBuildDate>Mon, 06 May 2019 17:53:24 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -29,7 +29,9 @@
 
 &lt;p&gt;We can’t directly compare the results of the following AutoML experimentation to those previous examples, since they’re using a different dataset and model architecture. However, we’ll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.&lt;/p&gt;
 
-&lt;h3 id=&quot;create-a-bigquery-table-for-the-automl-input-dataset&quot;&gt;Create a BigQuery table for the AutoML input dataset&lt;/h3&gt;
+&lt;p&gt;In the rest of the blog post, we’ll walk through how to do that.&lt;/p&gt;
+
+&lt;h3 id=&quot;step-1-create-a-bigquery-table-for-the-automl-input-dataset&quot;&gt;Step 1: Create a BigQuery table for the AutoML input dataset&lt;/h3&gt;
 
 &lt;p&gt;AutoML Tables makes it easy to ingest data from &lt;a href=&quot;https://cloud.google.com/bigquery/&quot;&gt;BigQuery&lt;/a&gt;.&lt;/p&gt;
 
@@ -118,7 +120,7 @@
 
 &lt;p&gt;&lt;/p&gt;
 
-&lt;h3 id=&quot;import-your-new-table-as-an-automl-dataset&quot;&gt;Import your new table as an AutoML dataset&lt;/h3&gt;
+&lt;h3 id=&quot;step-2-import-your-new-table-as-an-automl-dataset&quot;&gt;Step 2: Import your new table as an AutoML dataset&lt;/h3&gt;
 
 &lt;p&gt;Then, return to the &lt;a href=&quot;https://console.cloud.google.com/automl-tables/datasets&quot;&gt;AutoML panel in the Cloud Console&lt;/a&gt;, and import your new table (the one in your own project), as a new AutoML Tables dataset.&lt;/p&gt;
 
@@ -129,7 +131,7 @@
 
 &lt;p&gt;&lt;/p&gt;
 
-&lt;h3 id=&quot;specify-a-schema-and-launch-the-automl-model-training-job&quot;&gt;Specify a schema, and launch the AutoML model training job&lt;/h3&gt;
+&lt;h3 id=&quot;step-3-specify-a-schema-and-launch-the-automl-model-training-job&quot;&gt;Step 3: Specify a schema, and launch the AutoML model training job&lt;/h3&gt;
 
 &lt;p&gt;After the import has completed, you’ll next specify a schema for your dataset. Here is where you indicate which column is your ‘target’ (what you’d like to learn to predict), as well as the column types.&lt;/p&gt;
 
@@ -201,7 +203,7 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 
 &lt;p&gt;&lt;/p&gt;
 
-&lt;h3 id=&quot;use-your-new-model-for-prediction&quot;&gt;Use your new model for prediction&lt;/h3&gt;
+&lt;h3 id=&quot;step-4-use-your-new-model-for-prediction&quot;&gt;Step 4: Use your new model for prediction&lt;/h3&gt;
 
 &lt;p&gt;Once you’ve trained your model, you can use it for prediction. You can opt to use a BigQuery table or Google Cloud Storage (GCS) files for both input sources and outputs.&lt;/p&gt;
 
