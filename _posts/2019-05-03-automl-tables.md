@@ -27,7 +27,9 @@ These examples use this dataset to build a neural net model (specifically, a ["w
 
 We can't directly compare the results of the following AutoML experimentation to those previous examples, since they're using a different dataset and model architecture. However, we'll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.
 
-### Create a BigQuery table for the AutoML input dataset
+In the rest of the blog post, we'll walk through how to do that.
+
+### Step 1: Create a BigQuery table for the AutoML input dataset
 
 AutoML Tables makes it easy to ingest data from [BigQuery](https://cloud.google.com/bigquery/).
 
@@ -113,7 +115,7 @@ When the query has finished running, export the results to a table in your own p
 
 <p></p>
 
-### Import your new table as an AutoML dataset
+### Step 2: Import your new table as an AutoML dataset
 
 Then, return to the [AutoML panel in the Cloud Console](https://console.cloud.google.com/automl-tables/datasets), and import your new table (the one in your own project), as a new AutoML Tables dataset.
 
@@ -124,7 +126,7 @@ Then, return to the [AutoML panel in the Cloud Console](https://console.cloud.go
 
 <p></p>
 
-### Specify a schema, and launch the AutoML model training job
+### Step 3: Specify a schema, and launch the AutoML model training job
 
 After the import has completed, you'll next specify a schema for your dataset. Here is where you indicate which column is your 'target' (what you'd like to learn to predict), as well as the column types. 
 
@@ -198,7 +200,7 @@ You can also export your evaluation results to a new BigQuery table, which lets 
 <p></p>
 
 
-### Use your new model for prediction
+### Step 4: Use your new model for prediction
 
 Once you've trained your model, you can use it for prediction. You can opt to use a BigQuery table or Google Cloud Storage (GCS) files for both input sources and outputs.
 
