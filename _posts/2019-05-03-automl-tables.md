@@ -35,7 +35,7 @@ So, we'll generate a version of the Chicago taxi trips public BigQuery table tha
 
 So, the first thing we'll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the [BigQuery query window](https://console.cloud.google.com/bigquery), or [use this URL](https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc).
 
-> Note: when I ran this query, it processed about 15.7 GB of data.
+> <small>Note: when I ran this query, it processed about 15.7 GB of data.</small>
 
 
 ```sql
@@ -102,7 +102,7 @@ LIMIT
 
 You can see the use of the `ST_SnapToGrid` function to "bucket" the lat/long data. (Currently, AutoML Tables doesn't support the BigQuery GIS data types, so we're converting those to text and will treat them categorically). We're also generating a new euclidean distance measure between pickup and dropoff using the `ST_Distance` function.
 
-> Note: I also experimented with including the actual pickup and dropoff lat/lng values in the new table in addition to the derived grid values, but — using three hours of training budget— these additional inputs did not help, and in fact resulted in a model with slightly lower accuracy.
+> <small>Note: I also experimented with including the actual pickup and dropoff lat/lng values in the new table in addition to the derived grid values, but — using three hours of training budget — these additional inputs did not help, and in fact resulted in a model with slightly lower accuracy.</small>
 
 When the query has finished running, export the results to a table in your own project, by clicking on "Save Results".
 
@@ -213,8 +213,8 @@ You can also perform online prediction. For this, you'll first need to **deploy*
 
 Once deployment's done, you can send real-time REST requests to the AutoML Tables API. The AutoML web UI makes it easy to experiment with this API. (See the [pricing guide](https://cloud.google.com/automl-tables/pricing?_ga=2.215766548.-287350488.1556733758)— if you're just experimenting, you may want to take down your deployed model once you're done.)
 
-> Note the linked
-["getting started" instructions](https://cloud.google.com/automl-tables/docs/before-you-begin) on creating a service account first.
+> <small>Note the linked
+["getting started" instructions](https://cloud.google.com/automl-tables/docs/before-you-begin) on creating a service account first.</small>
 
 <figure>
 <a href="/images/online_predict.png" target="_blank"><img src="/images/online_predict.png" width="500%"/></a>
