@@ -110,19 +110,18 @@
   <article class="post-content">
     <p><a href="https://cloud.google.com/automl-tables/">AutoML Tables</a> was recently <a href="https://cloud.google.com/blog/products/ai-machine-learning/expanding-google-cloud-ai-to-make-it-easier-for-developers-to-build-and-deploy-ai">announced</a> as a new member of GCP’s <a href="https://cloud.google.com/automl/">family</a> of AutoML products. It lets you automatically build and deploy state-of-the-art machine learning models on structured data.</p>
 
-<p>I thought it would be fun to try AutoML Tables on a dataset that’s been used for a number of recent
-<a href="https://www.tensorflow.org">TensorFlow</a>-based examples: the
+<p>I thought it would be fun to try AutoML Tables on a dataset that’s been used for a number of recent <a href="https://www.tensorflow.org">TensorFlow</a>-based examples: the
 <a href="https://pantheon.corp.google.com/marketplace/details/city-of-chicago-public-data/chicago-taxi-trips">‘Chicago Taxi Trips’ dataset</a>, which is one of a large number of
 <a href="https://cloud.google.com/bigquery/public-data/">public datasets hosted with BigQuery</a>.</p>
 
 <p>These examples use this dataset to build a neural net model (specifically, a <a href="https://www.tensorflow.org/api_docs/python/tf/estimator/DNNLinearCombinedClassifier">“wide and deep” TensorFlow</a> model) that predicts whether a given trip will result in a tip &gt; 20%.  (Many of these examples also show how to use the <a href="https://www.tensorflow.org/tfx">TensorFlow Extended (TFX)</a> libraries for things like data validation, feature preprocessing, and model analysis).</p>
 
-<figure>
+<!-- <figure>
 <a href="/images/pipelines_acc.png" target="_blank"><img src="/images/pipelines_acc.png" /></a>
-<figcaption><br /><i>Metrics from running the <a href="https://kubeflow.org">Kubeflow Pipelines</a> <a href="https://github.com/kubeflow/pipelines/tree/master/samples/tfx">version</a> of the TFX-based 'Chicago Taxi Data' <a href="https://github.com/tensorflow/tfx/blob/master/tfx/examples/chicago_taxi/README.md">example</a>.</i></figcaption>
+<figcaption><br/><i>Metrics from running the <a href="https://kubeflow.org">Kubeflow Pipelines</a> <a href="https://github.com/kubeflow/pipelines/tree/master/samples/tfx">version</a> of the TFX-based 'Chicago Taxi Data' <a href="https://github.com/tensorflow/tfx/blob/master/tfx/examples/chicago_taxi/README.md">example</a>.</i></figcaption>
 </figure>
 
-<p></p>
+<p></p> -->
 
 <p>We can’t directly compare the results of the following AutoML experimentation to those previous examples, since they’re using a different dataset and model architecture. However, we’ll use a roughly similar set of input features and stick to the spirit of these other examples by doing binary classification on the tip percentage.</p>
 
@@ -134,13 +133,14 @@
 
 <p>So, we’ll generate a version of the Chicago taxi trips public BigQuery table that has a new column reflecting whether or not the tip was &gt; 20%.  We’ll also do a bit of ‘bucketing’ of the lat/long information using the <a href="https://cloud.google.com/bigquery/docs/gis-data">(new-ish and very cool) BigQuery GIS functions</a>, and weed out rows where either the fare or trip miles are not &gt; 0.</p>
 
-<p>So, the first thing we’ll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the <a href="https://console.cloud.google.com/bigquery">BigQuery query window</a>, or <a href="https://console.cloud.google.com/bigquery?sq=467744782358:ae38c8baf54a46489536ae486979a1bc">use this URL</a>.</p>
+<p>So, the first thing we’ll do is run a BigQuery query to generate this new version of the Chicago taxi dataset. Paste the following SQL into the <a href="https://console.cloud.google.com/bigquery">BigQuery query window</a>, or <a href="https://console.cloud.google.com/bigquery?sq=467744782358:66c15f6305484f46a52ec5d2a8ac888b">use this URL</a>. <strong>Edit the SQL to use your own project and dataset prior to running the query</strong>.</p>
 
 <blockquote>
   <p><small>Note: when I ran this query, it processed about 15.7 GB of data.</small></p>
 </blockquote>
 
-<div class="language-sql highlighter-rouge"><pre class="highlight"><code><span class="k">WITH</span>
+<div class="language-sql highlighter-rouge"><pre class="highlight"><code><span class="k">CREATE</span> <span class="k">OR</span> <span class="k">REPLACE</span> <span class="k">TABLE</span> <span class="nv">`your-project.your-dataset.chicago_taxitrips_mod`</span> <span class="k">AS</span> <span class="p">(</span>
+<span class="k">WITH</span>
   <span class="n">taxitrips</span> <span class="k">AS</span> <span class="p">(</span>
   <span class="k">SELECT</span>
     <span class="n">trip_start_timestamp</span><span class="p">,</span>
@@ -186,40 +186,42 @@
   <span class="n">company</span><span class="p">,</span>
   <span class="n">tip_bin</span><span class="p">,</span>
   <span class="n">ST_AsText</span><span class="p">(</span><span class="n">ST_SnapToGrid</span><span class="p">(</span><span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">pickup_longitude</span><span class="p">,</span>
-        <span class="n">pickup_latitude</span><span class="p">),</span>
-      <span class="mi">0</span><span class="p">.</span><span class="mi">05</span><span class="p">))</span> <span class="k">AS</span> <span class="n">pickup_grid</span><span class="p">,</span>
+        <span class="n">pickup_latitude</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">))</span> <span class="k">AS</span> <span class="n">pickup_grid</span><span class="p">,</span>
   <span class="n">ST_AsText</span><span class="p">(</span><span class="n">ST_SnapToGrid</span><span class="p">(</span><span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">dropoff_longitude</span><span class="p">,</span>
-        <span class="n">dropoff_latitude</span><span class="p">),</span>
-      <span class="mi">0</span><span class="p">.</span><span class="mi">05</span><span class="p">))</span> <span class="k">AS</span> <span class="n">dropoff_grid</span><span class="p">,</span>
+        <span class="n">dropoff_latitude</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">))</span> <span class="k">AS</span> <span class="n">dropoff_grid</span><span class="p">,</span>
   <span class="n">ST_Distance</span><span class="p">(</span><span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">pickup_longitude</span><span class="p">,</span>
       <span class="n">pickup_latitude</span><span class="p">),</span>
     <span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">dropoff_longitude</span><span class="p">,</span>
-      <span class="n">dropoff_latitude</span><span class="p">))</span> <span class="k">AS</span> <span class="n">euclidean</span>
+      <span class="n">dropoff_latitude</span><span class="p">))</span> <span class="k">AS</span> <span class="n">euclidean</span><span class="p">,</span>
+  <span class="n">CONCAT</span><span class="p">(</span><span class="n">ST_AsText</span><span class="p">(</span><span class="n">ST_SnapToGrid</span><span class="p">(</span><span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">pickup_longitude</span><span class="p">,</span>
+          <span class="n">pickup_latitude</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">)),</span> <span class="n">ST_AsText</span><span class="p">(</span><span class="n">ST_SnapToGrid</span><span class="p">(</span><span class="n">ST_GeogPoint</span><span class="p">(</span><span class="n">dropoff_longitude</span><span class="p">,</span>
+          <span class="n">dropoff_latitude</span><span class="p">),</span> <span class="mi">0</span><span class="p">.</span><span class="mi">1</span><span class="p">)))</span> <span class="k">AS</span> <span class="n">loc_cross</span>
 <span class="k">FROM</span>
   <span class="n">taxitrips</span>
 <span class="k">LIMIT</span>
   <span class="mi">100000000</span>
+  <span class="p">)</span>
 </code></pre>
 </div>
 
-<p>You can see the use of the <code class="highlighter-rouge">ST_SnapToGrid</code> function to “bucket” the lat/long data. (Currently, AutoML Tables doesn’t support the BigQuery GIS data types, so we’re converting those to text and will treat them categorically). We’re also generating a new euclidean distance measure between pickup and dropoff using the <code class="highlighter-rouge">ST_Distance</code> function.</p>
+<p>You can see the use of the <code class="highlighter-rouge">ST_SnapToGrid</code> function to “bucket” the lat/long data, including a ‘cross’ of pickup with dropoff. We’re converting those fields to text and will treat them categorically. We’re also generating a new euclidean distance measure between pickup and dropoff using the <code class="highlighter-rouge">ST_Distance</code> function, and a feature cross of the pickup and dropoff grids.</p>
 
 <blockquote>
-  <p><small>Note: I also experimented with including the actual pickup and dropoff lat/lng values in the new table in addition to the derived grid values, but — using three hours of training budget — these additional inputs did not help, and in fact resulted in a model with slightly lower accuracy.</small></p>
+  <p><small>Note: I also experimented with including the actual pickup and dropoff lat/lng values in the new table in addition to the derived grid values, but (unsurprisngly, since it can be hard for a NN to learn relationships <em>between</em> features) these additional inputs did not improve accuracy.</small></p>
 </blockquote>
 
-<p>When the query has finished running, export the results to a table in your own project, by clicking on “Save Results”.</p>
+<!-- When the query has finished running, export the results to a table in your own project, by clicking on "Save Results".
 
 <figure>
-<a href="/images/bq_save_results.png" target="_blank"><img src="/images/bq_save_results.png" width="500" /></a>
-<figcaption><br /><i>Save the query results to a table in your own project.</i></figcaption>
+<a href="/images/bq_save_results.png" target="_blank"><img src="/images/bq_save_results.png" width="500"/></a>
+<figcaption><br/><i>Save the query results to a table in your own project.</i></figcaption>
 </figure>
 
-<p></p>
+<p></p> -->
 
 <h3 id="step-2-import-your-new-table-as-an-automl-dataset">Step 2: Import your new table as an AutoML dataset</h3>
 
-<p>Then, return to the <a href="https://console.cloud.google.com/automl-tables/datasets">AutoML panel in the Cloud Console</a>, and import your new table (the one in your own project), as a new AutoML Tables dataset.</p>
+<p>Then, return to the <a href="https://console.cloud.google.com/automl-tables/datasets">AutoML panel in the Cloud Console</a>, and import your table —the new one in your own project that you created when running the query above — as a new AutoML Tables dataset.</p>
 
 <figure>
 <a href="/images/create_dataset.png" target="_blank"><img src="/images/create_dataset.png" width="500" /></a>
@@ -235,16 +237,17 @@
 <p>We’ll use the <code class="highlighter-rouge">tip_bin</code> column as the <em>target</em>.  Recall that this is one of the new columns we created when generating the new BigQuery table.  So, the ML task will be to learn how to predict — given other information about the trip — whether or not the tip will be over 20%.
 Note that once you select this column as the target, AutoML automatically suggests that it should build a classification model, which is what we want.</p>
 
-<p>Then, we’ll adjust some of the column types.  AutoML does a pretty good job of inferring what they should be, based on the characteristics of the dataset.  However, we’ll set the ‘census tract’ and ‘community area’ columns (for both pickup and dropoff) to be treated as <em>categorical</em>, not numerical.</p>
+<p>Then, we’ll adjust some of the column types.  AutoML does a pretty good job of inferring what they should be, based on the characteristics of the dataset.  However, we’ll set the ‘census tract’ and ‘community area’ columns (for both pickup and dropoff) to be treated as <em>categorical</em>, not numerical. We’ll also set the the <code class="highlighter-rouge">pickup_grid</code>,
+<code class="highlighter-rouge">dropoff_grid</code>, and <code class="highlighter-rouge">loc_cross</code> columns as categorical.</p>
 
 <figure>
-<a href="/images/schema.png" target="_blank"><img src="/images/schema.png" width="90%" /></a>
+<a href="/images/schema2.png" target="_blank"><img src="/images/schema2.png" width="90%" /></a>
 <figcaption><br /><i>Specify the input schema for your training job.</i></figcaption>
 </figure>
 
 <p></p>
 
-<p>We can view an analysis of the dataset as well.  Some rows have a lot of missing fields.  We won’t take any further action for this example, but if this was your own dataset, this might indicate places where your data collection process was problematic or where your daataset needed some cleanup.</p>
+<p>We can view an analysis of the dataset as well.  Some rows have a lot of missing fields.  We won’t take any further action for this example, but if this was your own dataset, this might indicate places where your data collection process was problematic or where your daataset needed some cleanup. You can also check the number of distinct values for a column, and look at the correlation of a column with the target. (Note that the <code class="highlighter-rouge">tolls</code> field has low correlation with the target).</p>
 
 <figure>
 <a href="/images/analyze.png" target="_blank"><img src="/images/analyze.png" width="90%" /></a>
@@ -254,17 +257,17 @@ Note that once you select this column as the target, AutoML automatically sugges
 <p></p>
 
 <p>Now we’re ready to kick off the training job. We need to tell it how many node-hours to spend.  Here I’m using 3, but you might want to use just 1 hour in your experiment. <a href="https://cloud.google.com/automl-tables/pricing?_ga=2.214193684.-287350488.1556733758">(Here’s</a> the (beta) pricing guide.)
-We’ll also tell AutoML which (non-target) columns to use as input.  Here, we’ll indicate to drop one column,
-the <code class="highlighter-rouge">trip_total</code>. This value is correlated with tip, so for the purposes of this experiment, its inclusion is ‘cheating’.</p>
+We’ll also tell AutoML which (non-target) columns to use as input.  Here, we’ll indicate to drop
+the <code class="highlighter-rouge">trip_total</code>. This value tracks with tip, so for the purposes of this experiment, its inclusion is ‘cheating’. We’ll also tell it to drop the <code class="highlighter-rouge">tolls</code> field, which the analysis indicated had very low correlation with the target.</p>
 
 <figure>
-<a href="/images/train_setup.png" target="_blank"><img src="/images/train_setup.png" width="500" /></a>
+<a href="/images/train_setup2.png" target="_blank"><img src="/images/train_setup2.png" width="500" /></a>
 <figcaption><br /><i>Setting up an AutoML Tables training job.</i></figcaption>
 </figure>
 
 <h3 id="evaluating-the-automl-model">Evaluating the AutoML model</h3>
 
-<p>When the training completes, you’ll get an email notification. AutoML automatically generates and displays model evaluation metrics for you. We can see, for example, that the model accuracy is 90.6% and the AUC ROC is 0.954.</p>
+<p>When the training completes, you’ll get an email notification. AutoML automatically generates and displays model evaluation metrics for you. We can see, for example, that for this training run, model accuracy is 90.6% and the AUC ROC is 0.954. (Your results will probably vary a bit).</p>
 
 <figure>
 <a href="/images/automl_eval1.png" target="_blank"><img src="/images/automl_eval1.png" width="95%" /></a>
@@ -282,10 +285,10 @@ the <code class="highlighter-rouge">trip_total</code>. This value is correlated 
 
 <p></p>
 
-<p>…and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that <code class="highlighter-rouge">payment_type</code> was most important.  (My guess: people are more likely to tip if they’re putting the fare on a credit card, where a tip is automatically suggested).  It looks like the pickup and dropoff info was not that informative, though information about trip distance was a bit more so.</p>
+<p>…and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that <code class="highlighter-rouge">payment_type</code> was most important.  (My guess: people are more likely to tip if they’re putting the fare on a credit card, where a tip is automatically suggested).  It looks like the pickup and dropoff info was not that informative, though information about trip distance, and the pickup/dropoff cross, were a bit more so.</p>
 
 <figure>
-<a href="/images/automl_feature_impt.png" target="_blank"><img src="/images/automl_feature_impt.png" width="90%" /></a>
+<a href="/images/feature_impt.png" target="_blank"><img src="/images/feature_impt.png" width="90%" /></a>
 <figcaption><br /><i>The most important features in the dataset, for predicting the given target.</i></figcaption>
 </figure>
 
@@ -350,7 +353,7 @@ the <code class="highlighter-rouge">trip_total</code>. This value is correlated 
 
 <h3 id="wrap-up">Wrap-up</h3>
 
-<p>In this post, I showed how straightforward it is to use AutoML Tables to train, evaluate, and use deep neural net models based on your own structured data, but without needing to build model code or manage distributed training; and then deploy the result for scalable serving.</p>
+<p>In this post, I showed how straightforward it is to use AutoML Tables to train, evaluate, and use state-of-the-art deep neural net models that are based on your own structured data, but without needing to build model code or manage distributed training; and then deploy the result for scalable serving.</p>
 
 <p>The example also showed how easy it is to leverage BigQuery queries (in particular I highlighted some of the the BigQuery GIS functions) to do some feature pre-processing.</p>
 
