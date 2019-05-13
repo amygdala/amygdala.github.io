@@ -185,7 +185,7 @@ It also generates a *confusion matrix*...
 
 <p></p>
 
-...and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that `payment_type` was most important.  (My guess: people are more likely to tip if they're putting the fare on a credit card, where a tip is automatically suggested; and cash tips tend to be underrported).  It looks like the pickup and dropoff info was not that informative, though information about trip distance, and the pickup/dropoff cross, were a bit more so.
+...and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that `payment_type` was most important.  (My guess: people are more likely to tip if they're putting the fare on a credit card, where a tip is automatically suggested; and cash tips tend to be underreported).  It looks like the pickup and dropoff info was not that informative, though information about trip distance, and the pickup/dropoff cross, were a bit more so.
 
 <figure>
 <a href="/images/feature_impt.png" target="_blank"><img src="/images/feature_impt.png" width="90%"/></a>
