@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <title>Using Preemptible VMs for Kubeflow Pipelines</title>
+  <meta name="description" content="Introduction">
+
+  <link rel="stylesheet" href="/css/main.css">
+  <link rel="canonical" href="http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+</head>
+
+
+  <body>
+
+    <header class="site-header">
+
+  <div class="wrapper">
+
+    <a class="site-title" href="/">Amy on GCP</a>
+
+    <nav class="site-nav">
+      <a href="#" class="menu-icon">
+        <svg viewBox="0 0 18 15">
+          <path fill="#424242" d="M18,1.484c0,0.82-0.665,1.484-1.484,1.484H1.484C0.665,2.969,0,2.304,0,1.484l0,0C0,0.665,0.665,0,1.484,0 h15.031C17.335,0,18,0.665,18,1.484L18,1.484z"/>
+          <path fill="#424242" d="M18,7.516C18,8.335,17.335,9,16.516,9H1.484C0.665,9,0,8.335,0,7.516l0,0c0-0.82,0.665-1.484,1.484-1.484 h15.031C17.335,6.031,18,6.696,18,7.516L18,7.516z"/>
+          <path fill="#424242" d="M18,13.516C18,14.335,17.335,15,16.516,15H1.484C0.665,15,0,14.335,0,13.516l0,0 c0-0.82,0.665-1.484,1.484-1.484h15.031C17.335,12.031,18,12.696,18,13.516L18,13.516z"/>
+        </svg>
+      </a>
+
+      <div class="trigger">
+        
+          
+          <a class="page-link" href="/about/">About</a>
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+          
+        
+      </div>
+    </nav>
+
+  </div>
+
+</header>
+
+
+    <div class="page-content">
+      <div class="wrapper">
+        <div class="post">
+
+  <header class="post-header">
+    <h1 class="post-title">Using Preemptible VMs for Kubeflow Pipelines</h1>
+    <p class="post-meta">Aug 18, 2019</p>
+  </header>
+
+  <article class="post-content">
+    <h2 id="introduction">Introduction</h2>
+
+<p>In this post, we’ll show how you can use <a href="https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms">preemptible VMs</a> when running <a href="https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/">Kubeflow Pipelines</a> jobs, to reduce costs. We’ll also look at how you can use <a href="https://cloud.google.com/monitoring/docs/">Stackdriver Monitoring</a> to inspect logs for both current and terminated pipeline operations.</p>
+
+<p>Preemptible VMs are <a href="https://cloud.google.com/compute/docs/instances/">Compute Engine VM</a> instances that last a maximum of 24 hours and provide no availability guarantees. The pricing of preemptible VMs is lower than that of standard Compute Engine VMs.
+With <a href="https://cloud.google.com/kubernetes-engine/docs/">Google Kubernetes Engine (GKE)</a>, it is easy to set up a cluster or node pool <a href="https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms">that uses preemptible VMs</a>.
+You can set up such a node pool with <a href="https://cloud.google.com/compute/docs/instances/preemptible#preemptible_with_gpu">GPUs attached to the preemptible instances</a>. These work the same as regular GPU-enabled nodes, but the GPUs persist only for the life of the instance.</p>
+
+<p><a href="https://www.kubeflow.org/">Kubeflow</a> is an open-source project  dedicated to making deployments of machine learning (ML) workflows on <a href="https://kubernetes.io">Kubernetes</a> simple, portable and scalable.  <a href="https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/">Kubeflow Pipelines</a> is a platform for building and deploying portable, scalable machine learning (ML) workflows based on Docker containers.</p>
+
+<p>If you’re running Kubeflow on GKE, it is now easy to <a href="https://www.kubeflow.org/docs/pipelines/sdk/gcp/preemptible/">define and run Kubeflow Pipelines</a> in which one or more pipeline steps (components) run on preemptible nodes, reducing the cost of running a job.  For use of preemptible VMs to give correct results, the steps that you identify as preemptible should either be <a href="https://en.wikipedia.org/wiki/Idempotence"><em>idempotent</em></a> (that is, if you run a step multiple times, it will have the same result), or should checkpoint work so that the step can pick up where it left off if interrupted.</p>
+
+<p>For example, a copy of a <a href="https://cloud.google.com/storage/">Google Cloud Storage (GCS)</a> directory will have the same results if it’s interrupted and run again (assuming the source directory is unchanging).
+An operation to train a machine learning (ML) model (e.g., a TensorFlow training run) will typically be set up to checkpoint periodically, so if the training is interrupted by preemption, it can just pick up where it left off when the step is restarted.  Most ML frameworks make it easy to support checkpointing, and so if your Kubeflow Pipeline includes model training steps, these are a great candidate for running on preemptible GPU-enabled nodes.</p>
+
+<figure>
+<a href="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png" width="70%" /></a>
+<figcaption><br /><i>A Kubeflow Pipelines job that is using preemptible VMs for its training. When a training step is terminated due to preemption, it is restarted, and picks up where it left off using checkpoint information.</i></figcaption>
+</figure>
+
+<p>When you’re running a pipeline and a cluster node is preempted, any <a href="https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/">pods</a> running on that node will be terminated as well. You’ll often want to look at the logs from these terminated pods. Cloud Platform’s <a href="https://cloud.google.com/monitoring/docs/">Stackdriver logging</a> makes it easy to do this.</p>
+
+<p>In this post, we’ll look at how to use preemptible VMs with Kubeflow Pipelines, and how to inspect pipeline steps using Stackdriver.</p>
+
+<h2 id="set-up-a-preemptible-gpu-node-pool-in-your-gke-cluster">Set up a preemptible GPU node pool in your GKE cluster</h2>
+
+<p>You can set up a preemptible, GPU-enabled node pool for your cluster by running a command similar to the following, editing the following command with your cluster name and zone, and adjusting the accelerator type and count according to your requirements. As shown below, you can also define the node pool to autoscale based on current workloads.</p>
+
+<div class="language-sh highlighter-rouge"><pre class="highlight"><code>gcloud container node-pools create preemptible-gpu-pool <span class="se">\</span>
+    --cluster<span class="o">=</span>&lt;your-cluster-name&gt; <span class="se">\</span>
+    --zone &lt;your-cluster-zone&gt; <span class="se">\</span>
+    --enable-autoscaling --max-nodes<span class="o">=</span>4 --min-nodes<span class="o">=</span>0 <span class="se">\</span>
+    --machine-type n1-highmem-8 <span class="se">\</span>
+    --preemptible <span class="se">\</span>
+    --node-taints<span class="o">=</span><span class="nv">preemptible</span><span class="o">=</span><span class="nb">true</span>:NoSchedule <span class="se">\</span>
+    --scopes cloud-platform --verbosity error <span class="se">\</span>
+    --accelerator<span class="o">=</span><span class="nb">type</span><span class="o">=</span>nvidia-tesla-k80,count<span class="o">=</span>4
+</code></pre>
+</div>
+
+<p>You can also set up the node pool via the <a href="https://console.cloud.google.com">Cloud Console</a>.</p>
+
+<blockquote>
+  <p><strong>Note</strong>: You may need to increase your <a href="https://cloud.google.com/compute/quotas#requesting_additional_quota">GPU quota</a> before running this command. (Make sure you request quota for the zone in which your cluster is running).</p>
+</blockquote>
+
+<h2 id="defining-a-kubeflow-pipeline-that-uses-the-preemptible-gke-nodes">Defining a Kubeflow Pipeline that uses the preemptible GKE nodes</h2>
+
+<p>When you’re defining a Kubeflow Pipeline, you can indicate that a given step should run on a preemptible node by modifying the op like this:</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="n">your_pipelines_op</span><span class="o">.</span><span class="nb">apply</span><span class="p">(</span><span class="n">gcp</span><span class="o">.</span><span class="n">use_preemptible_nodepool</span><span class="p">())</span>
+</code></pre>
+</div>
+
+<p>See the <a href="https://www.kubeflow.org/docs/pipelines/sdk/gcp/preemptible/">documentation</a> for details— if you changed the node taint from the above when creating the node pool, pass the same node toleration to the <code class="highlighter-rouge">use_preemptible_nodepool()</code> call.</p>
+
+<p>You’ll presumably also want to retry the step some number of times if the node is preempted. You can do this as follows— here, we’re specifying 5 retries.  This annotation also specifies that the op should run on a node with 4 GPUs available.</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="n">your_pipelines_op</span><span class="o">.</span><span class="n">set_gpu_limit</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="nb">apply</span><span class="p">(</span><span class="n">gcp</span><span class="o">.</span><span class="n">use_preemptible_nodepool</span><span class="p">())</span><span class="o">.</span><span class="n">set_retry</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+</code></pre>
+</div>
+
+<h2 id="an-example-making-model-training-cheaper-with-preemptible-nodes">An example: making model training cheaper with preemptible nodes</h2>
+
+<p>Let’s look at a concrete example.
+The Kubeflow Pipeline from <a href="https://codelabs.developers.google.com/codelabs/cloud-kubeflow-pipelines-gis/#0">this codelab</a> is a good candidate for using preemptible steps.  This pipeline trains a <a href="https://github.com/tensorflow/tensor2tensor/">Tensor2Tensor</a> model on GitHub issue data, learning to predict issue titles from issue bodies, deploys the trained model for serving, and then deploys a webapp to get predictions from the model. It has a uses a TensorFlow model architecture that requires GPUs for reasonable performance, and— depending upon configuration— can run for quite a long time.
+I thought it would be useful to modify this pipeline to make use of the new support for preemptible VMs for the training. (<a href="https://github.com/kubeflow/examples/blob/master/github_issue_summarization/pipelines/example_pipelines/gh_summ.py">Here</a> is the original pipeline definition.)</p>
+
+<p>To do this, I first needed to refactor the pipeline, to separate a GCS copy action from the model training activity. In the original version of this pipeline, a copy of an initial TensorFlow checkpoint directory to a working directory was bundled with the training.
+This refactoring was required for correctness: if the training is preempted and needs to be restarted, we don’t want to wipe out the current checkpoint files with the initial ones.</p>
+
+<p>While I was at it, I created <a href="https://www.kubeflow.org/docs/pipelines/sdk/component-development/"><strong>reusable component</strong> specifications</a> for the two GCS copy and TensorFlow training pipeline steps, rather than defining these pipeline steps as part of the pipeline definition.  A reusable component is a pre-implemented standalone <a href="https://www.kubeflow.org/docs/pipelines/concepts/component/">component</a> that is easy to add as a step in any pipeline, and makes the pipeline definition simpler. The component specification makes it easy to add <a href="https://www.kubeflow.org/docs/pipelines/sdk/static-type-checking/">static type checking</a> of inputs and outputs as well.
+You can see these component definition files <a href="https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/components/t2t/datacopy_component.yaml">here</a> and <a href="https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/components/t2t/train_component.yaml">here</a>.</p>
+
+<p>Here is the relevant part of the new pipeline definition:</p>
+
+<div class="language-python highlighter-rouge"><pre class="highlight"><code><span class="kn">import</span> <span class="nn">kfp.dsl</span> <span class="kn">as</span> <span class="nn">dsl</span>
+<span class="kn">import</span> <span class="nn">kfp.gcp</span> <span class="kn">as</span> <span class="nn">gcp</span>
+<span class="kn">import</span> <span class="nn">kfp.components</span> <span class="kn">as</span> <span class="nn">comp</span>
+
+<span class="o">...</span>
+
+<span class="n">copydata_op</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">load_component_from_url</span><span class="p">(</span>
+  <span class="s">'https://raw.githubusercontent.com/amygdala/kubeflow-examples/preempt/github_issue_summarization/pipelines/components/t2t/datacopy_component.yaml'</span>
+  <span class="p">)</span>
+
+<span class="n">train_op</span> <span class="o">=</span> <span class="n">comp</span><span class="o">.</span><span class="n">load_component_from_url</span><span class="p">(</span>
+  <span class="s">'https://raw.githubusercontent.com/amygdala/kubeflow-examples/preempt/github_issue_summarization/pipelines/components/t2t/train_component.yaml'</span>
+  <span class="p">)</span>
+
+<span class="nd">@dsl.pipeline</span><span class="p">(</span>
+  <span class="n">name</span><span class="o">=</span><span class="s">'Github issue summarization'</span><span class="p">,</span>
+  <span class="n">description</span><span class="o">=</span><span class="s">'Demonstrate Tensor2Tensor-based training and TF-Serving'</span>
+<span class="p">)</span>
+<span class="k">def</span> <span class="nf">gh_summ</span><span class="p">(</span>
+  <span class="n">train_steps</span><span class="o">=</span><span class="mi">2019300</span><span class="p">,</span>
+  <span class="n">project</span><span class="o">=</span><span class="s">'YOUR_PROJECT_HERE'</span><span class="p">,</span>
+  <span class="n">github_token</span><span class="o">=</span><span class="s">'YOUR_GITHUB_TOKEN_HERE'</span><span class="p">,</span>
+  <span class="n">working_dir</span><span class="o">=</span><span class="s">'YOUR_GCS_DIR_HERE'</span><span class="p">,</span>
+  <span class="n">checkpoint_dir</span><span class="o">=</span><span class="s">'gs://aju-dev-demos-codelabs/kubecon/model_output_tbase.bak2019000'</span><span class="p">,</span>
+  <span class="n">deploy_webapp</span><span class="o">=</span><span class="s">'true'</span><span class="p">,</span>
+  <span class="n">data_dir</span><span class="o">=</span><span class="s">'gs://aju-dev-demos-codelabs/kubecon/t2t_data_gh_all/'</span>
+  <span class="p">):</span>
+
+  <span class="n">copydata</span> <span class="o">=</span> <span class="n">copydata_op</span><span class="p">(</span>
+    <span class="n">working_dir</span><span class="o">=</span><span class="n">working_dir</span><span class="p">,</span>
+    <span class="n">data_dir</span><span class="o">=</span><span class="n">data_dir</span><span class="p">,</span>
+    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="n">checkpoint_dir</span><span class="p">,</span>
+    <span class="n">model_dir</span><span class="o">=</span><span class="s">'</span><span class="si">%</span><span class="s">s/</span><span class="si">%</span><span class="s">s/model_output'</span> <span class="o">%</span> <span class="p">(</span><span class="n">working_dir</span><span class="p">,</span> <span class="s">''</span><span class="p">),</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">COPY_ACTION</span>
+    <span class="p">)</span><span class="o">.</span><span class="nb">apply</span><span class="p">(</span><span class="n">gcp</span><span class="o">.</span><span class="n">use_gcp_secret</span><span class="p">(</span><span class="s">'user-gcp-sa'</span><span class="p">))</span>
+
+  <span class="n">train</span> <span class="o">=</span> <span class="n">train_op</span><span class="p">(</span>
+    <span class="n">working_dir</span><span class="o">=</span><span class="n">working_dir</span><span class="p">,</span>
+    <span class="n">data_dir</span><span class="o">=</span><span class="n">data_dir</span><span class="p">,</span>
+    <span class="n">checkpoint_dir</span><span class="o">=</span><span class="n">checkpoint_dir</span><span class="p">,</span>
+    <span class="n">model_dir</span><span class="o">=</span><span class="s">'</span><span class="si">%</span><span class="s">s/</span><span class="si">%</span><span class="s">s/model_output'</span> <span class="o">%</span> <span class="p">(</span><span class="n">working_dir</span><span class="p">,</span> <span class="s">''</span><span class="p">),</span>
+    <span class="n">action</span><span class="o">=</span><span class="n">TRAIN_ACTION</span><span class="p">,</span> <span class="n">train_steps</span><span class="o">=</span><span class="n">train_steps</span><span class="p">,</span>
+    <span class="n">deploy_webapp</span><span class="o">=</span><span class="n">deploy_webapp</span>
+    <span class="p">)</span><span class="o">.</span><span class="nb">apply</span><span class="p">(</span><span class="n">gcp</span><span class="o">.</span><span class="n">use_gcp_secret</span><span class="p">(</span><span class="s">'user-gcp-sa'</span><span class="p">))</span>
+
+  <span class="n">train</span><span class="o">.</span><span class="n">after</span><span class="p">(</span><span class="n">copydata</span><span class="p">)</span>
+  <span class="n">train</span><span class="o">.</span><span class="n">set_gpu_limit</span><span class="p">(</span><span class="mi">4</span><span class="p">)</span><span class="o">.</span><span class="nb">apply</span><span class="p">(</span><span class="n">gcp</span><span class="o">.</span><span class="n">use_preemptible_nodepool</span><span class="p">())</span><span class="o">.</span><span class="n">set_retry</span><span class="p">(</span><span class="mi">5</span><span class="p">)</span>
+  <span class="n">train</span><span class="o">.</span><span class="n">set_memory_limit</span><span class="p">(</span><span class="s">'48G'</span><span class="p">)</span>
+
+  <span class="o">...</span>
+
+</code></pre>
+</div>
+
+<p>I’ve defined the <code class="highlighter-rouge">copydata</code> and <code class="highlighter-rouge">train</code> steps using the component definitions, in this case loaded from URLs. (While not shown here, a Github-based component URL can include a specific git commit hash, thus supporting component version control— <a href="https://github.com/kubeflow/pipelines/blob/master/components/gcp/ml_engine/train/sample.ipynb">here’s an example of that</a>.)</p>
+
+<p>I’ve annotated the training op to run on a preemptible GPU-enabled node, and to retry 5 times. (For a long training job, you’d want to increase that number).
+You can see the full pipeline definition <a href="https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/example_pipelines/gh_summ_preempt.py">here</a>.</p>
+
+<p>(As a side note: it would have worked fine to use preemptible VMs for the copy step too, since if it is interrupted, it can be rerun without changing the result.)</p>
+
+<h2 id="preemptible-pipelines-in-action">Preemptible pipelines in action</h2>
+
+<p>When the pipeline above is run, its training step may be preempted and restarted.  If this happens, it will look like this in the Kubeflow Pipelines dashboard UI:</p>
+
+<figure>
+<a href="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt1-2%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt1-2%202.png" width="90%" /></a>
+<figcaption><br /><i>A pipeline with a preemptible training step that has been restarted two times.</i></figcaption>
+</figure>
+
+<p>The restarted training step picks up where it left off, using its most recent saved checkpoint.  In this screenshot, we’re using the Pipelines UI to look at the logs for the <em>running</em> training pod, <code class="highlighter-rouge">train(2)</code>.</p>
+
+<p>If we want to look at the logs for a pod <em>terminated</em> by node preemption, we can do this using <a href="https://cloud.google.com/monitoring/">Stackdriver</a>.</p>
+
+<figure>
+<a href="https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver2-2%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver2-2%202.png" width="90%" /></a>
+<figcaption><br /><i>If the pod for a pipeline step has been deleted, a link is provided to look at the logs in Stackdriver.</i></figcaption>
+</figure>
+
+<p>Clicking the stackdriver link opens a window that brings up the Stackdriver Log Viewer in the Cloud Console, and sets a <em>filter</em> that selects the output for that pod.</p>
+
+<figure>
+<a href="https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver1-2%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver1-2%202.png" width="90%" /></a>
+<figcaption><br /><i>Clicking the 'Stackdriver' link in the Kubeflow Pipelines UI takes you to the relevant logs in the Cloud Console.</i></figcaption>
+</figure>
+
+<p>At some later point, the training run completes— in the figure below, after three premptions and retries— and the remainder of the pipeline runs.</p>
+<figure>
+<a href="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png" target="_blank"><img src="https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png" width="90%" /></a>
+<figcaption><br /><i>The full pipeline run, with training completed after 3 preemptions.</i></figcaption>
+</figure>
+
+<h3 id="whats-next">What’s next?</h3>
+
+<p>In this post, I showed how you can use preemptible VMs for your Kubeflow Pipelines jobs in order to reduce costs.</p>
+
+<p>To learn more about Kubeflow, including Kubeflow Pipelines, and to try it out yourself, the <a href="https://www.kubeflow.org/docs/">Kubeflow documentation</a> and <a href="https://github.com/kubeflow/examples">examples repo</a> are good starting points.
+You might also be interested in this recent <a href="https://www.youtube.com/watch?v=fiFk5FB7il8">Kubeflow Community meeting presentation</a> on what’s new in the Kubeflow 0.6 release.</p>
+
+
+  </article>
+
+</div>
+
+Tags:
+  
+    <a href="/tag/kubeflow">kubeflow</a>&nbsp
+  
+    <a href="/tag/ml">ml</a>&nbsp
+  
+    <a href="/tag/pipelines">pipelines</a>&nbsp
+  
+</ul>
+
+      </div>
+    </div>
+
+    <footer class="site-footer">
+
+  <div class="wrapper">
+
+    <!-- <h2 class="footer-heading">Amy on GCP</h2> -->
+
+    <div class="footer-col-wrapper">
+      <div class="footer-col  footer-col-1">
+        <ul class="contact-list">
+          <!-- <li>Amy on GCP</li> -->
+          <li><a href="mailto:"></a></li>
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-2">
+        <ul class="social-media-list">
+          
+          <li>
+            <a href="https://github.com/amygdala">
+              <span class="icon  icon--github">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M7.999,0.431c-4.285,0-7.76,3.474-7.76,7.761 c0,3.428,2.223,6.337,5.307,7.363c0.388,0.071,0.53-0.168,0.53-0.374c0-0.184-0.007-0.672-0.01-1.32 c-2.159,0.469-2.614-1.04-2.614-1.04c-0.353-0.896-0.862-1.135-0.862-1.135c-0.705-0.481,0.053-0.472,0.053-0.472 c0.779,0.055,1.189,0.8,1.189,0.8c0.692,1.186,1.816,0.843,2.258,0.645c0.071-0.502,0.271-0.843,0.493-1.037 C4.86,11.425,3.049,10.76,3.049,7.786c0-0.847,0.302-1.54,0.799-2.082C3.768,5.507,3.501,4.718,3.924,3.65 c0,0,0.652-0.209,2.134,0.796C6.677,4.273,7.34,4.187,8,4.184c0.659,0.003,1.323,0.089,1.943,0.261 c1.482-1.004,2.132-0.796,2.132-0.796c0.423,1.068,0.157,1.857,0.077,2.054c0.497,0.542,0.798,1.235,0.798,2.082 c0,2.981-1.814,3.637-3.543,3.829c0.279,0.24,0.527,0.713,0.527,1.437c0,1.037-0.01,1.874-0.01,2.129 c0,0.208,0.14,0.449,0.534,0.373c3.081-1.028,5.302-3.935,5.302-7.362C15.76,3.906,12.285,0.431,7.999,0.431z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+
+          
+          <li>
+            <a href="https://twitter.com/amygdala">
+              <span class="icon  icon--twitter">
+                <svg viewBox="0 0 16 16">
+                  <path fill="#828282" d="M15.969,3.058c-0.586,0.26-1.217,0.436-1.878,0.515c0.675-0.405,1.194-1.045,1.438-1.809
+                  c-0.632,0.375-1.332,0.647-2.076,0.793c-0.596-0.636-1.446-1.033-2.387-1.033c-1.806,0-3.27,1.464-3.27,3.27 c0,0.256,0.029,0.506,0.085,0.745C5.163,5.404,2.753,4.102,1.14,2.124C0.859,2.607,0.698,3.168,0.698,3.767 c0,1.134,0.577,2.135,1.455,2.722C1.616,6.472,1.112,6.325,0.671,6.08c0,0.014,0,0.027,0,0.041c0,1.584,1.127,2.906,2.623,3.206 C3.02,9.402,2.731,9.442,2.433,9.442c-0.211,0-0.416-0.021-0.615-0.059c0.416,1.299,1.624,2.245,3.055,2.271 c-1.119,0.877-2.529,1.4-4.061,1.4c-0.264,0-0.524-0.015-0.78-0.046c1.447,0.928,3.166,1.469,5.013,1.469 c6.015,0,9.304-4.983,9.304-9.304c0-0.142-0.003-0.283-0.009-0.423C14.976,4.29,15.531,3.714,15.969,3.058z"/>
+                </svg>
+              </span>
+
+              <span class="username">amygdala</span>
+            </a>
+          </li>
+          
+        </ul>
+      </div>
+
+      <div class="footer-col  footer-col-3">
+        <p class="text"></p>
+      </div>
+    </div>
+
+  </div>
+
+</footer>
+
+
+  </body>
+
+</html>
