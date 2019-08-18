@@ -53,7 +53,7 @@ gcloud container node-pools create preemptible-gpu-pool \
 
 You can also set up the node pool via the [Cloud Console](https://console.cloud.google.com).
 
-> **Note**: You may need to increase your [GPU quota](xxx) before running this command.
+> **Note**: You may need to increase your [GPU quota](https://cloud.google.com/compute/quotas#requesting_additional_quota) before running this command. (Make sure you request quota for the zone in which your cluster is running).
 
 
 ## Defining a Kubeflow Pipeline that uses the preemptible GKE nodes
