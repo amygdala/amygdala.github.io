@@ -5,9 +5,204 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Wed, 08 May 2019 17:04:58 -0700</pubDate>
-    <lastBuildDate>Wed, 08 May 2019 17:04:58 -0700</lastBuildDate>
+    <pubDate>Sun, 18 Aug 2019 08:15:40 -0700</pubDate>
+    <lastBuildDate>Sun, 18 Aug 2019 08:15:40 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>Using Preemptible VMs for Kubeflow Pipelines</title>
+        <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
+
+&lt;p&gt;In this post, we’ll show how you can use &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms&quot;&gt;preemptible VMs&lt;/a&gt; when running &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/&quot;&gt;Kubeflow Pipelines&lt;/a&gt; jobs, to reduce costs. We’ll also look at how you can use &lt;a href=&quot;https://cloud.google.com/monitoring/docs/&quot;&gt;Stackdriver Monitoring&lt;/a&gt; to inspect logs for both current and terminated pipeline operations.&lt;/p&gt;
+
+&lt;p&gt;Preemptible VMs are &lt;a href=&quot;https://cloud.google.com/compute/docs/instances/&quot;&gt;Compute Engine VM&lt;/a&gt; instances that last a maximum of 24 hours and provide no availability guarantees. The pricing of preemptible VMs is lower than that of standard Compute Engine VMs.
+With &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/&quot;&gt;Google Kubernetes Engine (GKE)&lt;/a&gt;, it is easy to set up a cluster or node pool &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms&quot;&gt;that uses preemptible VMs&lt;/a&gt;.
+You can set up such a node pool with &lt;a href=&quot;https://cloud.google.com/compute/docs/instances/preemptible#preemptible_with_gpu&quot;&gt;GPUs attached to the preemptible instances&lt;/a&gt;. These work the same as regular GPU-enabled nodes, but the GPUs persist only for the life of the instance.&lt;/p&gt;
+
+&lt;p&gt;&lt;a href=&quot;https://www.kubeflow.org/&quot;&gt;Kubeflow&lt;/a&gt; is an open-source project  dedicated to making deployments of machine learning (ML) workflows on &lt;a href=&quot;https://kubernetes.io&quot;&gt;Kubernetes&lt;/a&gt; simple, portable and scalable.  &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/&quot;&gt;Kubeflow Pipelines&lt;/a&gt; is a platform for building and deploying portable, scalable machine learning (ML) workflows based on Docker containers.&lt;/p&gt;
+
+&lt;p&gt;If you’re running Kubeflow on GKE, it is now easy to &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/gcp/preemptible/&quot;&gt;define and run Kubeflow Pipelines&lt;/a&gt; in which one or more pipeline steps (components) run on preemptible nodes, reducing the cost of running a job.  For use of preemptible VMs to give correct results, the steps that you identify as preemptible should either be &lt;a href=&quot;https://en.wikipedia.org/wiki/Idempotence&quot;&gt;&lt;em&gt;idempotent&lt;/em&gt;&lt;/a&gt; (that is, if you run a step multiple times, it will have the same result), or should checkpoint work so that the step can pick up where it left off if interrupted.&lt;/p&gt;
+
+&lt;p&gt;For example, a copy of a &lt;a href=&quot;https://cloud.google.com/storage/&quot;&gt;Google Cloud Storage (GCS)&lt;/a&gt; directory will have the same results if it’s interrupted and run again (assuming the source directory is unchanging).
+An operation to train a machine learning (ML) model (e.g., a TensorFlow training run) will typically be set up to checkpoint periodically, so if the training is interrupted by preemption, it can just pick up where it left off when the step is restarted.  Most ML frameworks make it easy to support checkpointing, and so if your Kubeflow Pipeline includes model training steps, these are a great candidate for running on preemptible GPU-enabled nodes.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png&quot; width=&quot;70%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;A Kubeflow Pipelines job that is using preemptible VMs for its training. When a training step is terminated due to preemption, it is restarted, and picks up where it left off using checkpoint information.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;When you’re running a pipeline and a cluster node is preempted, any &lt;a href=&quot;https://kubernetes.io/docs/concepts/workloads/pods/pod-overview/&quot;&gt;pods&lt;/a&gt; running on that node will be terminated as well. You’ll often want to look at the logs from these terminated pods. Cloud Platform’s &lt;a href=&quot;https://cloud.google.com/monitoring/docs/&quot;&gt;Stackdriver logging&lt;/a&gt; makes it easy to do this.&lt;/p&gt;
+
+&lt;p&gt;In this post, we’ll look at how to use preemptible VMs with Kubeflow Pipelines, and how to inspect pipeline steps using Stackdriver.&lt;/p&gt;
+
+&lt;h2 id=&quot;set-up-a-preemptible-gpu-node-pool-in-your-gke-cluster&quot;&gt;Set up a preemptible GPU node pool in your GKE cluster&lt;/h2&gt;
+
+&lt;p&gt;You can set up a preemptible, GPU-enabled node pool for your cluster by running a command similar to the following, editing the following command with your cluster name and zone, and adjusting the accelerator type and count according to your requirements. As shown below, you can also define the node pool to autoscale based on current workloads.&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud container node-pools create preemptible-gpu-pool &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --cluster&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&amp;lt;your-cluster-name&amp;gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --zone &amp;lt;your-cluster-zone&amp;gt; &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --enable-autoscaling --max-nodes&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;4 --min-nodes&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;0 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --machine-type n1-highmem-8 &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --preemptible &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --node-taints&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nv&quot;&gt;preemptible&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;true&lt;/span&gt;:NoSchedule &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --scopes cloud-platform --verbosity error &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+    --accelerator&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;type&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;nvidia-tesla-k80,count&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;4
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;You can also set up the node pool via the &lt;a href=&quot;https://console.cloud.google.com&quot;&gt;Cloud Console&lt;/a&gt;.&lt;/p&gt;
+
+&lt;blockquote&gt;
+  &lt;p&gt;&lt;strong&gt;Note&lt;/strong&gt;: You may need to increase your &lt;a href=&quot;https://cloud.google.com/compute/quotas#requesting_additional_quota&quot;&gt;GPU quota&lt;/a&gt; before running this command. (Make sure you request quota for the zone in which your cluster is running).&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;h2 id=&quot;defining-a-kubeflow-pipeline-that-uses-the-preemptible-gke-nodes&quot;&gt;Defining a Kubeflow Pipeline that uses the preemptible GKE nodes&lt;/h2&gt;
+
+&lt;p&gt;When you’re defining a Kubeflow Pipeline, you can indicate that a given step should run on a preemptible node by modifying the op like this:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;your_pipelines_op&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;apply&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gcp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;use_preemptible_nodepool&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;See the &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/gcp/preemptible/&quot;&gt;documentation&lt;/a&gt; for details— if you changed the node taint from the above when creating the node pool, pass the same node toleration to the &lt;code class=&quot;highlighter-rouge&quot;&gt;use_preemptible_nodepool()&lt;/code&gt; call.&lt;/p&gt;
+
+&lt;p&gt;You’ll presumably also want to retry the step some number of times if the node is preempted. You can do this as follows— here, we’re specifying 5 retries.  This annotation also specifies that the op should run on a node with 4 GPUs available.&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;n&quot;&gt;your_pipelines_op&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_gpu_limit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;apply&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gcp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;use_preemptible_nodepool&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_retry&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h2 id=&quot;an-example-making-model-training-cheaper-with-preemptible-nodes&quot;&gt;An example: making model training cheaper with preemptible nodes&lt;/h2&gt;
+
+&lt;p&gt;Let’s look at a concrete example.
+The Kubeflow Pipeline from &lt;a href=&quot;https://codelabs.developers.google.com/codelabs/cloud-kubeflow-pipelines-gis/#0&quot;&gt;this codelab&lt;/a&gt; is a good candidate for using preemptible steps.  This pipeline trains a &lt;a href=&quot;https://github.com/tensorflow/tensor2tensor/&quot;&gt;Tensor2Tensor&lt;/a&gt; model on GitHub issue data, learning to predict issue titles from issue bodies, deploys the trained model for serving, and then deploys a webapp to get predictions from the model. It has a uses a TensorFlow model architecture that requires GPUs for reasonable performance, and— depending upon configuration— can run for quite a long time.
+I thought it would be useful to modify this pipeline to make use of the new support for preemptible VMs for the training. (&lt;a href=&quot;https://github.com/kubeflow/examples/blob/master/github_issue_summarization/pipelines/example_pipelines/gh_summ.py&quot;&gt;Here&lt;/a&gt; is the original pipeline definition.)&lt;/p&gt;
+
+&lt;p&gt;To do this, I first needed to refactor the pipeline, to separate a GCS copy action from the model training activity. In the original version of this pipeline, a copy of an initial TensorFlow checkpoint directory to a working directory was bundled with the training.
+This refactoring was required for correctness: if the training is preempted and needs to be restarted, we don’t want to wipe out the current checkpoint files with the initial ones.&lt;/p&gt;
+
+&lt;p&gt;While I was at it, I created &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/component-development/&quot;&gt;&lt;strong&gt;reusable component&lt;/strong&gt; specifications&lt;/a&gt; for the two GCS copy and TensorFlow training pipeline steps, rather than defining these pipeline steps as part of the pipeline definition.  A reusable component is a pre-implemented standalone &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/concepts/component/&quot;&gt;component&lt;/a&gt; that is easy to add as a step in any pipeline, and makes the pipeline definition simpler. The component specification makes it easy to add &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/static-type-checking/&quot;&gt;static type checking&lt;/a&gt; of inputs and outputs as well.
+You can see these component definition files &lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/components/t2t/datacopy_component.yaml&quot;&gt;here&lt;/a&gt; and &lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/components/t2t/train_component.yaml&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;Here is the relevant part of the new pipeline definition:&lt;/p&gt;
+
+&lt;div class=&quot;language-python highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;kfp.dsl&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;dsl&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;kfp.gcp&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;gcp&lt;/span&gt;
+&lt;span class=&quot;kn&quot;&gt;import&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;kfp.components&lt;/span&gt; &lt;span class=&quot;kn&quot;&gt;as&lt;/span&gt; &lt;span class=&quot;nn&quot;&gt;comp&lt;/span&gt;
+
+&lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;copydata_op&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;comp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;load_component_from_url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;'https://raw.githubusercontent.com/amygdala/kubeflow-examples/preempt/github_issue_summarization/pipelines/components/t2t/datacopy_component.yaml'&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;n&quot;&gt;train_op&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;comp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;load_component_from_url&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;'https://raw.githubusercontent.com/amygdala/kubeflow-examples/preempt/github_issue_summarization/pipelines/components/t2t/train_component.yaml'&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+&lt;span class=&quot;nd&quot;&gt;@dsl.pipeline&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Github issue summarization'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;description&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'Demonstrate Tensor2Tensor-based training and TF-Serving'&lt;/span&gt;
+&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+&lt;span class=&quot;k&quot;&gt;def&lt;/span&gt; &lt;span class=&quot;nf&quot;&gt;gh_summ&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;train_steps&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;2019300&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;project&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'YOUR_PROJECT_HERE'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;github_token&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'YOUR_GITHUB_TOKEN_HERE'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'YOUR_GCS_DIR_HERE'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;checkpoint_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'gs://aju-dev-demos-codelabs/kubecon/model_output_tbase.bak2019000'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;deploy_webapp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'true'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;data_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'gs://aju-dev-demos-codelabs/kubecon/t2t_data_gh_all/'&lt;/span&gt;
+  &lt;span class=&quot;p&quot;&gt;):&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;copydata&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;copydata_op&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;data_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;checkpoint_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;checkpoint_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;model_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s/&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s/model_output'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;action&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;COPY_ACTION&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;apply&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gcp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;use_gcp_secret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'user-gcp-sa'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;train&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;=&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;train_op&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;data_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;data_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;checkpoint_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;checkpoint_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;model_dir&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s/&lt;/span&gt;&lt;span class=&quot;si&quot;&gt;%&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;s/model_output'&lt;/span&gt; &lt;span class=&quot;o&quot;&gt;%&lt;/span&gt; &lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;working_dir&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;''&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;),&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;action&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;TRAIN_ACTION&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt; &lt;span class=&quot;n&quot;&gt;train_steps&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;train_steps&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;,&lt;/span&gt;
+    &lt;span class=&quot;n&quot;&gt;deploy_webapp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;deploy_webapp&lt;/span&gt;
+    &lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;apply&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gcp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;use_gcp_secret&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'user-gcp-sa'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;))&lt;/span&gt;
+
+  &lt;span class=&quot;n&quot;&gt;train&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;after&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;copydata&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;train&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_gpu_limit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;4&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;apply&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;gcp&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;use_preemptible_nodepool&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;())&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_retry&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;mi&quot;&gt;5&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+  &lt;span class=&quot;n&quot;&gt;train&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;.&lt;/span&gt;&lt;span class=&quot;n&quot;&gt;set_memory_limit&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;(&lt;/span&gt;&lt;span class=&quot;s&quot;&gt;'48G'&lt;/span&gt;&lt;span class=&quot;p&quot;&gt;)&lt;/span&gt;
+
+  &lt;span class=&quot;o&quot;&gt;...&lt;/span&gt;
+
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;I’ve defined the &lt;code class=&quot;highlighter-rouge&quot;&gt;copydata&lt;/code&gt; and &lt;code class=&quot;highlighter-rouge&quot;&gt;train&lt;/code&gt; steps using the component definitions, in this case loaded from URLs. (While not shown here, a Github-based component URL can include a specific git commit hash, thus supporting component version control— &lt;a href=&quot;https://github.com/kubeflow/pipelines/blob/master/components/gcp/ml_engine/train/sample.ipynb&quot;&gt;here’s an example of that&lt;/a&gt;.)&lt;/p&gt;
+
+&lt;p&gt;I’ve annotated the training op to run on a preemptible GPU-enabled node, and to retry 5 times. (For a long training job, you’d want to increase that number).
+You can see the full pipeline definition &lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/preempt/github_issue_summarization/pipelines/example_pipelines/gh_summ_preempt.py&quot;&gt;here&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;(As a side note: it would have worked fine to use preemptible VMs for the copy step too, since if it is interrupted, it can be rerun without changing the result.)&lt;/p&gt;
+
+&lt;h2 id=&quot;preemptible-pipelines-in-action&quot;&gt;Preemptible pipelines in action&lt;/h2&gt;
+
+&lt;p&gt;When the pipeline above is run, its training step may be preempted and restarted.  If this happens, it will look like this in the Kubeflow Pipelines dashboard UI:&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt1-2%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt1-2%202.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;A pipeline with a preemptible training step that has been restarted two times.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;The restarted training step picks up where it left off, using its most recent saved checkpoint.  In this screenshot, we’re using the Pipelines UI to look at the logs for the &lt;em&gt;running&lt;/em&gt; training pod, &lt;code class=&quot;highlighter-rouge&quot;&gt;train(2)&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;If we want to look at the logs for a pod &lt;em&gt;terminated&lt;/em&gt; by node preemption, we can do this using &lt;a href=&quot;https://cloud.google.com/monitoring/&quot;&gt;Stackdriver&lt;/a&gt;.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver2-2%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver2-2%202.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;If the pod for a pipeline step has been deleted, a link is provided to look at the logs in Stackdriver.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;Clicking the stackdriver link opens a window that brings up the Stackdriver Log Viewer in the Cloud Console, and sets a &lt;em&gt;filter&lt;/em&gt; that selects the output for that pod.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver1-2%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/stackdriver1-2%202.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Clicking the 'Stackdriver' link in the Kubeflow Pipelines UI takes you to the relevant logs in the Cloud Console.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;At some later point, the training run completes— in the figure below, after three premptions and retries— and the remainder of the pipeline runs.&lt;/p&gt;
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/kf-pls/preempt2%202.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;The full pipeline run, with training completed after 3 preemptions.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h3 id=&quot;whats-next&quot;&gt;What’s next?&lt;/h3&gt;
+
+&lt;p&gt;In this post, I showed how you can use preemptible VMs for your Kubeflow Pipelines jobs in order to reduce costs.&lt;/p&gt;
+
+&lt;p&gt;To learn more about Kubeflow, including Kubeflow Pipelines, and to try it out yourself, the &lt;a href=&quot;https://www.kubeflow.org/docs/&quot;&gt;Kubeflow documentation&lt;/a&gt; and &lt;a href=&quot;https://github.com/kubeflow/examples&quot;&gt;examples repo&lt;/a&gt; are good starting points.
+You might also be interested in this recent &lt;a href=&quot;https://www.youtube.com/watch?v=fiFk5FB7il8&quot;&gt;Kubeflow Community meeting presentation&lt;/a&gt; on what’s new in the Kubeflow 0.6 release.&lt;/p&gt;
+
+</description>
+        <pubDate>Sun, 18 Aug 2019 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</guid>
+        
+        <category>kubeflow</category>
+        
+        <category>ml</category>
+        
+        <category>pipelines</category>
+        
+        
+        <category>Kubeflow</category>
+        
+        <category>ML</category>
+        
+      </item>
     
       <item>
         <title>AutoML Tables and the 'Chicago Taxi Trips' dataset</title>
@@ -188,7 +383,7 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 
 &lt;p&gt;&lt;/p&gt;
 
-&lt;p&gt;…and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that &lt;code class=&quot;highlighter-rouge&quot;&gt;payment_type&lt;/code&gt; was most important.  (My guess: people are more likely to tip if they’re putting the fare on a credit card, where a tip is automatically suggested).  It looks like the pickup and dropoff info was not that informative, though information about trip distance, and the pickup/dropoff cross, were a bit more so.&lt;/p&gt;
+&lt;p&gt;…and a histogram of the input features that were of most importance. This histogram is kind of interesting: it suggests that &lt;code class=&quot;highlighter-rouge&quot;&gt;payment_type&lt;/code&gt; was most important.  (My guess: people are more likely to tip if they’re putting the fare on a credit card, where a tip is automatically suggested; and cash tips tend to be underreported).  It looks like the pickup and dropoff info was not that informative, though information about trip distance, and the pickup/dropoff cross, were a bit more so.&lt;/p&gt;
 
 &lt;figure&gt;
 &lt;a href=&quot;/images/feature_impt.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;/images/feature_impt.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
@@ -1614,34 +1809,6 @@ This number won’t work indefinitely, though :).&lt;/p&gt;
         
         
         <category>ML</category>
-        
-      </item>
-    
-      <item>
-        <title>Cloud Dataflow News</title>
-        <description>&lt;p&gt;There’s been a lot happening with &lt;a href=&quot;https://cloud.google.com/dataflow/&quot;&gt;Google Cloud Dataflow&lt;/a&gt; lately.&lt;/p&gt;
-
-&lt;p&gt;We are pleased to announce the recent induction of the &lt;a href=&quot;https://cloud.google.com/dataflow/what-is-google-cloud-dataflow#Sdks&quot;&gt;Google Cloud Dataflow SDK&lt;/a&gt; (and corresponding runners for &lt;a href=&quot;https://flink.apache.org/&quot;&gt;Apache Flink&lt;/a&gt; and &lt;a href=&quot;http://spark.apache.org/&quot;&gt;Apache Spark&lt;/a&gt;) into the new &lt;a href=&quot;http://beam.incubator.apache.org/&quot;&gt;Apache Beam incubator project&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;A &lt;a href=&quot;http://oreilly.com/ideas/the-world-beyond-batch-streaming-102&quot;&gt;‘Streaming 102’&lt;/a&gt; article was published by O’Reilly , following 
-&lt;a href=&quot;http://oreilly.com/ideas/the-world-beyond-batch-streaming-101&quot;&gt;‘Streaming 101’&lt;/a&gt;.  These articles provide a great overview of design and implementation considerations in stream data analysis.&lt;/p&gt;
-
-&lt;p&gt;We’ve also recently written an article that &lt;a href=&quot;https://cloud.google.com/dataflow/blog/dataflow-beam-and-spark-comparison&quot;&gt;compares the programming models of Dataflow and Spark as they exist today&lt;/a&gt;, based on a mobile ‘gaming’ scenario, involving the evolution of a pipeline from a simple batch use case to more sophisticated streaming use cases, with side-by-side code snippets contrasting the two.
-The article uses a suite of ‘gaming’ example pipelines that can be found in the &lt;a href=&quot;https://github.com/GoogleCloudPlatform/DataflowJavaSDK/tree/master/examples/src/main/java8/com/google/cloud/dataflow/examples/complete/game&quot;&gt;Dataflow github repo&lt;/a&gt;.&lt;/p&gt;
-
-</description>
-        <pubDate>Mon, 15 Feb 2016 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/2016/02/15/dataflow.html</guid>
-        
-        <category>apache_beam</category>
-        
-        <category>big_data</category>
-        
-        <category>data_analysis</category>
-        
-        
-        <category>Dataflow</category>
         
       </item>
     
