@@ -5,15 +5,66 @@
     <description></description>
     <link>http://amygdala.github.io/</link>
     <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 18 Aug 2019 08:15:40 -0700</pubDate>
-    <lastBuildDate>Sun, 18 Aug 2019 08:15:40 -0700</lastBuildDate>
+    <pubDate>Thu, 22 Aug 2019 13:12:33 -0700</pubDate>
+    <lastBuildDate>Thu, 22 Aug 2019 13:12:33 -0700</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
-        <title>Using Preemptible VMs for Kubeflow Pipelines</title>
+        <title>Remote deployment of Kubeflow Pipelines</title>
+        <description>&lt;p&gt;If you’ve used &lt;a href=&quot;https://www.kubeflow.org/docs/&quot;&gt;Kubeflow&lt;/a&gt;, you may know that its &lt;a href=&quot;https://www.kubeflow.org/docs/components/jupyter/&quot;&gt;Jupyter notebooks&lt;/a&gt; installation makes it easy to deploy a &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/&quot;&gt;Kubeflow Pipeline&lt;/a&gt; directly from a notebook, using the &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/&quot;&gt;Pipelines SDK&lt;/a&gt;.
+&lt;a href=&quot;https://github.com/kubeflow/pipelines/blob/master/samples/notebooks/Lightweight%20Python%20components%20-%20basics.ipynb&quot;&gt;This notebook&lt;/a&gt;, and others in that directory, show examples of how you can do that.
+The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstart/&quot;&gt;Pipelines Dashboard&lt;/a&gt;, which is part of the Kubeflow Dashboard, makes it easy to upload and run pipelines as well.&lt;/p&gt;
+
+&lt;p&gt;Sometimes, though, you want to deploy a Kubeflow Pipeline remotely, from outside the Kubeflow cluster. Maybe you want to do this via execution of a command-line script on your local laptop; or from a VM that’s outside the Kubeflow cluster (like the &lt;a href=&quot;https://pantheon.corp.google.com/mlengine/notebooks/&quot;&gt;AI Platform notebooks&lt;/a&gt;); or from services like &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;Cloud Run&lt;/a&gt;, or &lt;a href=&quot;https://cloud.google.com/functions/docs/&quot;&gt;Cloud Functions&lt;/a&gt; (which let you support event-triggered pipelines until that feature is available natively).&lt;/p&gt;
+
+&lt;p&gt;Remote deployment works well, but to implement it, you need to do a bit more setup to create the client connection to Kubeflow Pipelines than you would if you were connecting from within the same Kubeflow cluster.&lt;/p&gt;
+
+&lt;p&gt;For example, the &lt;a href=&quot;https://deploy.kubeflow.cloud/#/deploy&quot;&gt;Kubeflow ‘click-to-deploy’ web app&lt;/a&gt;, which makes it easy to install Kubeflow on GKE, includes the option to set up a &lt;a href=&quot;https://cloud.google.com/iap/&quot;&gt;Cloud Identity-Aware Proxy (IAP)-enabled cluster&lt;/a&gt;.  Connecting remotely to an IAP-enabled cluster requires configuring and using a
+&lt;em&gt;service account&lt;/em&gt; with the correct permissions.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Creating an IAP-enabled Kubeflow installation on GKE using the click-to-deploy web app.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;&lt;/p&gt;
+
+&lt;p&gt;I’ve created a series of notebooks that walk through how to do the necessary setup for remote deployment in three different contexts:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/kfp_remote_deploy.ipynb&quot;&gt;kfp_remote_deploy.ipynb&lt;/a&gt; shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb&quot;&gt;kfp_remote_deploy-no-IAP.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster. &lt;br /&gt;
+&lt;strong&gt;Note&lt;/strong&gt;: port-forwarding is discouraged in a production context.&lt;/li&gt;
+  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;gcf_kfp_trigger.ipynb&lt;/a&gt; gives an example of how you can use
+&lt;a href=&quot;https://cloud.google.com/functions/&quot;&gt;GCF (Cloud Functions)&lt;/a&gt; to support event-triggering of a Pipeline deployment.
+The example shows the GCF function being triggered by the addition or update of a &lt;a href=&quot;https://cloud.google.com/storage&quot;&gt;GCS (Google Cloud Storage)&lt;/a&gt; object, but there are many other &lt;a href=&quot;https://cloud.google.com/functions/docs/calling/&quot;&gt;GCF triggers&lt;/a&gt; that you can use.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Give these notebooks a try, and let me know what you think!&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 22 Aug 2019 00:00:00 -0700</pubDate>
+        <link>http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</guid>
+        
+        <category>kubeflow</category>
+        
+        <category>cloud_ml</category>
+        
+        <category>kubeflow_pipelines</category>
+        
+        
+        <category>Kubeflow</category>
+        
+        <category>ML</category>
+        
+      </item>
+    
+      <item>
+        <title>Using Preemptible GPU-enabled VMs for Kubeflow Pipelines</title>
         <description>&lt;h2 id=&quot;introduction&quot;&gt;Introduction&lt;/h2&gt;
 
-&lt;p&gt;In this post, we’ll show how you can use &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms&quot;&gt;preemptible VMs&lt;/a&gt; when running &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/&quot;&gt;Kubeflow Pipelines&lt;/a&gt; jobs, to reduce costs. We’ll also look at how you can use &lt;a href=&quot;https://cloud.google.com/monitoring/docs/&quot;&gt;Stackdriver Monitoring&lt;/a&gt; to inspect logs for both current and terminated pipeline operations.&lt;/p&gt;
+&lt;p&gt;In this post, we’ll show how you can use &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms&quot;&gt;preemptible GPU-provisioned VMs&lt;/a&gt; when running &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/&quot;&gt;Kubeflow Pipelines&lt;/a&gt; jobs, to reduce costs. We’ll also look at how you can use &lt;a href=&quot;https://cloud.google.com/monitoring/docs/&quot;&gt;Stackdriver Monitoring&lt;/a&gt; to inspect logs for both current and terminated pipeline operations.&lt;/p&gt;
 
 &lt;p&gt;Preemptible VMs are &lt;a href=&quot;https://cloud.google.com/compute/docs/instances/&quot;&gt;Compute Engine VM&lt;/a&gt; instances that last a maximum of 24 hours and provide no availability guarantees. The pricing of preemptible VMs is lower than that of standard Compute Engine VMs.
 With &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/&quot;&gt;Google Kubernetes Engine (GKE)&lt;/a&gt;, it is easy to set up a cluster or node pool &lt;a href=&quot;https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms&quot;&gt;that uses preemptible VMs&lt;/a&gt;.
@@ -179,13 +230,14 @@ You can see the full pipeline definition &lt;a href=&quot;https://github.com/amy
 &lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;The full pipeline run, with training completed after 3 preemptions.&lt;/i&gt;&lt;/figcaption&gt;
 &lt;/figure&gt;
 
-&lt;h3 id=&quot;whats-next&quot;&gt;What’s next?&lt;/h3&gt;
+&lt;h2 id=&quot;whats-next&quot;&gt;What’s next?&lt;/h2&gt;
 
 &lt;p&gt;In this post, I showed how you can use preemptible VMs for your Kubeflow Pipelines jobs in order to reduce costs.&lt;/p&gt;
 
 &lt;p&gt;To learn more about Kubeflow, including Kubeflow Pipelines, and to try it out yourself, the &lt;a href=&quot;https://www.kubeflow.org/docs/&quot;&gt;Kubeflow documentation&lt;/a&gt; and &lt;a href=&quot;https://github.com/kubeflow/examples&quot;&gt;examples repo&lt;/a&gt; are good starting points.
 You might also be interested in this recent &lt;a href=&quot;https://www.youtube.com/watch?v=fiFk5FB7il8&quot;&gt;Kubeflow Community meeting presentation&lt;/a&gt; on what’s new in the Kubeflow 0.6 release.&lt;/p&gt;
 
+&lt;p&gt;You may also want to take a look at the &lt;a href=&quot;https://github.com/kubeflow/pipelines/tree/master/manifests/kustomize&quot;&gt;‘lightweight’ Kubeflow Pipelines deployer&lt;/a&gt;, which allows someone who is not a GCP Project-level admin to deploy Kubeflow Pipelines onto an existing cluster.&lt;/p&gt;
 </description>
         <pubDate>Sun, 18 Aug 2019 00:00:00 -0700</pubDate>
         <link>http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
@@ -465,56 +517,6 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
         
         
         <category>AutoML</category>
-        
-        <category>ML</category>
-        
-      </item>
-    
-      <item>
-        <title>Remote deployment of Kubeflow Pipelines</title>
-        <description>&lt;p&gt;If you’ve used &lt;a href=&quot;https://www.kubeflow.org/docs/&quot;&gt;Kubeflow&lt;/a&gt;, you may know that its &lt;a href=&quot;https://www.kubeflow.org/docs/components/jupyter/&quot;&gt;Jupyter notebooks&lt;/a&gt; installation makes it easy to deploy a &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/&quot;&gt;Kubeflow Pipeline&lt;/a&gt; directly from a notebook, using the &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/sdk/&quot;&gt;Pipelines SDK&lt;/a&gt;.
-&lt;a href=&quot;https://github.com/kubeflow/pipelines/blob/master/samples/notebooks/Lightweight%20Python%20components%20-%20basics.ipynb&quot;&gt;This notebook&lt;/a&gt;, and others in that directory, show examples of how you can do that.
-The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstart/&quot;&gt;Pipelines Dashboard&lt;/a&gt;, which is part of the Kubeflow Dashboard, makes it easy to upload and run pipelines as well.&lt;/p&gt;
-
-&lt;p&gt;Sometimes, though, you want to deploy a Kubeflow Pipeline remotely, from outside the Kubeflow cluster. Maybe you want to do this via execution of a command-line script on your local laptop; or from a VM that’s outside the Kubeflow cluster (like the &lt;a href=&quot;https://pantheon.corp.google.com/mlengine/notebooks/instances?project=aju-vtests2&quot;&gt;AI Platform notebooks&lt;/a&gt;); or from services like &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;Cloud Run&lt;/a&gt;, or &lt;a href=&quot;https://cloud.google.com/functions/docs/&quot;&gt;Cloud Functions&lt;/a&gt; (which let you support event-triggered pipelines until that feature is available natively).&lt;/p&gt;
-
-&lt;p&gt;Remote deployment works well, but to implement it, you need to do a bit more setup to create the client connection to Kubeflow Pipelines than you would if you were connecting from within the same Kubeflow cluster.&lt;/p&gt;
-
-&lt;p&gt;For example, the &lt;a href=&quot;https://deploy.kubeflow.cloud/#/deploy&quot;&gt;Kubeflow ‘click-to-deploy’ web app&lt;/a&gt;, which makes it easy to install Kubeflow on GKE, includes the option to set up a &lt;a href=&quot;https://cloud.google.com/iap/&quot;&gt;Cloud Identity-Aware Proxy (IAP)-enabled cluster&lt;/a&gt;.  Connecting remotely to an IAP-enabled cluster requires configuring and using a
-&lt;em&gt;service account&lt;/em&gt; with the correct permissions.&lt;/p&gt;
-
-&lt;figure&gt;
-&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/Screenshot%202019-04-16%2017.04.02.png&quot; width=&quot;500&quot; /&gt;&lt;/a&gt;
-&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Creating an IAP-enabled Kubeflow installation on GKE using the click-to-deploy web app.&lt;/i&gt;&lt;/figcaption&gt;
-&lt;/figure&gt;
-
-&lt;p&gt;&lt;/p&gt;
-
-&lt;p&gt;I’ve created a series of notebooks that walk through how to do the necessary setup for remote deployment in three different contexts:&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy.ipynb&quot;&gt;kfp_remote_deploy.ipynb&lt;/a&gt; shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb&quot;&gt;kfp_remote_deploy-no-IAP.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster. &lt;br /&gt;
-&lt;strong&gt;Note&lt;/strong&gt;: port-forwarding can be convenient for development, but is discouraged in a production context.&lt;/li&gt;
-  &lt;li&gt;&lt;a href=&quot;https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb&quot;&gt;gcf_kfp_trigger.ipynb&lt;/a&gt; gives an example of how you can use
-&lt;a href=&quot;https://cloud.google.com/functions/&quot;&gt;GCF (Cloud Functions)&lt;/a&gt; to support event-triggering of a Pipeline deployment.&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;Give them a try and let me know what you think!&lt;/p&gt;
-
-</description>
-        <pubDate>Tue, 16 Apr 2019 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/kubeflow/ml/2019/04/16/kfp.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/04/16/kfp.html</guid>
-        
-        <category>kubeflow</category>
-        
-        <category>cloud_ml</category>
-        
-        <category>kubeflow_pipelines</category>
-        
-        
-        <category>Kubeflow</category>
         
         <category>ML</category>
         

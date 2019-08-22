@@ -6,7 +6,7 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <title>Using Preemptible VMs for Kubeflow Pipelines</title>
+  <title>Using Preemptible GPU-enabled VMs for Kubeflow Pipelines</title>
   <meta name="description" content="Introduction">
 
   <link rel="stylesheet" href="/css/main.css">
@@ -105,14 +105,14 @@
         <div class="post">
 
   <header class="post-header">
-    <h1 class="post-title">Using Preemptible VMs for Kubeflow Pipelines</h1>
+    <h1 class="post-title">Using Preemptible GPU-enabled VMs for Kubeflow Pipelines</h1>
     <p class="post-meta">Aug 18, 2019</p>
   </header>
 
   <article class="post-content">
     <h2 id="introduction">Introduction</h2>
 
-<p>In this post, we’ll show how you can use <a href="https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms">preemptible VMs</a> when running <a href="https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/">Kubeflow Pipelines</a> jobs, to reduce costs. We’ll also look at how you can use <a href="https://cloud.google.com/monitoring/docs/">Stackdriver Monitoring</a> to inspect logs for both current and terminated pipeline operations.</p>
+<p>In this post, we’ll show how you can use <a href="https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms">preemptible GPU-provisioned VMs</a> when running <a href="https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/">Kubeflow Pipelines</a> jobs, to reduce costs. We’ll also look at how you can use <a href="https://cloud.google.com/monitoring/docs/">Stackdriver Monitoring</a> to inspect logs for both current and terminated pipeline operations.</p>
 
 <p>Preemptible VMs are <a href="https://cloud.google.com/compute/docs/instances/">Compute Engine VM</a> instances that last a maximum of 24 hours and provide no availability guarantees. The pricing of preemptible VMs is lower than that of standard Compute Engine VMs.
 With <a href="https://cloud.google.com/kubernetes-engine/docs/">Google Kubernetes Engine (GKE)</a>, it is easy to set up a cluster or node pool <a href="https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms">that uses preemptible VMs</a>.
@@ -278,13 +278,14 @@ You can see the full pipeline definition <a href="https://github.com/amygdala/ku
 <figcaption><br /><i>The full pipeline run, with training completed after 3 preemptions.</i></figcaption>
 </figure>
 
-<h3 id="whats-next">What’s next?</h3>
+<h2 id="whats-next">What’s next?</h2>
 
 <p>In this post, I showed how you can use preemptible VMs for your Kubeflow Pipelines jobs in order to reduce costs.</p>
 
 <p>To learn more about Kubeflow, including Kubeflow Pipelines, and to try it out yourself, the <a href="https://www.kubeflow.org/docs/">Kubeflow documentation</a> and <a href="https://github.com/kubeflow/examples">examples repo</a> are good starting points.
 You might also be interested in this recent <a href="https://www.youtube.com/watch?v=fiFk5FB7il8">Kubeflow Community meeting presentation</a> on what’s new in the Kubeflow 0.6 release.</p>
 
+<p>You may also want to take a look at the <a href="https://github.com/kubeflow/pipelines/tree/master/manifests/kustomize">‘lightweight’ Kubeflow Pipelines deployer</a>, which allows someone who is not a GCP Project-level admin to deploy Kubeflow Pipelines onto an existing cluster.</p>
 
   </article>
 
