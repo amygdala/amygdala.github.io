@@ -5,7 +5,7 @@ categories:
 - Kubeflow
 - ML
 tags: kubeflow cloud_ml kubeflow_pipelines
-date: 2019-04-16
+date: 2019-08-22
 ---
 
 If you've used [Kubeflow](https://www.kubeflow.org/docs/), you may know that its [Jupyter notebooks](https://www.kubeflow.org/docs/components/jupyter/) installation makes it easy to deploy a [Kubeflow Pipeline](https://www.kubeflow.org/docs/pipelines/) directly from a notebook, using the [Pipelines SDK](https://www.kubeflow.org/docs/pipelines/sdk/).
