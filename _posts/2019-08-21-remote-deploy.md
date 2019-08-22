@@ -12,7 +12,7 @@ If you've used [Kubeflow](https://www.kubeflow.org/docs/), you may know that its
 [This notebook](https://github.com/kubeflow/pipelines/blob/master/samples/notebooks/Lightweight%20Python%20components%20-%20basics.ipynb), and others in that directory, show examples of how you can do that.
 The [Pipelines Dashboard](https://www.kubeflow.org/docs/pipelines/pipelines-quickstart/), which is part of the Kubeflow Dashboard, makes it easy to upload and run pipelines as well.
 
-Sometimes, though, you want to deploy a Kubeflow Pipeline remotely, from outside the Kubeflow cluster. Maybe you want to do this via execution of a command-line script on your local laptop; or from a VM that's outside the Kubeflow cluster (like the [AI Platform notebooks](https://pantheon.corp.google.com/mlengine/notebooks/instances?project=aju-vtests2)); or from services like [Cloud Run](https://cloud.google.com/run/docs/), or [Cloud Functions](https://cloud.google.com/functions/docs/) (which let you support event-triggered pipelines until that feature is available natively).
+Sometimes, though, you want to deploy a Kubeflow Pipeline remotely, from outside the Kubeflow cluster. Maybe you want to do this via execution of a command-line script on your local laptop; or from a VM that's outside the Kubeflow cluster (like the [AI Platform notebooks](https://pantheon.corp.google.com/mlengine/notebooks/)); or from services like [Cloud Run](https://cloud.google.com/run/docs/), or [Cloud Functions](https://cloud.google.com/functions/docs/) (which let you support event-triggered pipelines until that feature is available natively).
 
 Remote deployment works well, but to implement it, you need to do a bit more setup to create the client connection to Kubeflow Pipelines than you would if you were connecting from within the same Kubeflow cluster. 
 
@@ -28,11 +28,12 @@ For example, the [Kubeflow 'click-to-deploy' web app](https://deploy.kubeflow.cl
 
 I've created a series of notebooks that walk through how to do the necessary setup for remote deployment in three different contexts:
 
-- [kfp_remote_deploy.ipynb](https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy.ipynb) shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).
-- [kfp_remote_deploy-no-IAP.ipynb](https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb) walks through how to connect via port-forwarding to the cluster.   
-**Note**: port-forwarding can be convenient for development, but is discouraged in a production context.
-- [gcf_kfp_trigger.ipynb](https://github.com/amygdala/examples/blob/cookbook/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb) gives an example of how you can use
+- [kfp_remote_deploy.ipynb](https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/kfp_remote_deploy.ipynb) shows how to do remote Pipelines deployment to an IAP-enabled Kubeflow installation (on GKE).
+- [kfp_remote_deploy-no-IAP.ipynb](https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/kfp_remote_deploy-no-IAP.ipynb) walks through how to connect via port-forwarding to the cluster.   
+**Note**: port-forwarding is discouraged in a production context.
+- [gcf_kfp_trigger.ipynb](https://github.com/amygdala/kubeflow-examples/blob/gcf/cookbook/pipelines/notebooks/gcf_kfp_trigger.ipynb) gives an example of how you can use
 [GCF (Cloud Functions)](https://cloud.google.com/functions/) to support event-triggering of a Pipeline deployment.
+The example shows the GCF function being triggered by the addition or update of a [GCS (Google Cloud Storage)](https://cloud.google.com/storage) object, but there are many other [GCF triggers](https://cloud.google.com/functions/docs/calling/) that you can use.
 
-Give them a try and let me know what you think!
+Give these notebooks a try, and let me know what you think!
 

@@ -1,6 +1,6 @@
 ---
 layout: post
-title: "Using Preemptible VMs for Kubeflow Pipelines"
+title: "Using Preemptible GPU-enabled VMs for Kubeflow Pipelines"
 categories:
 - Kubeflow
 - ML
@@ -10,7 +10,7 @@ date: 2019-08-18
 
 ## Introduction
 
-In this post, we'll show how you can use [preemptible VMs](https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms) when running [Kubeflow Pipelines](https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/) jobs, to reduce costs. We'll also look at how you can use [Stackdriver Monitoring](https://cloud.google.com/monitoring/docs/) to inspect logs for both current and terminated pipeline operations.
+In this post, we'll show how you can use [preemptible GPU-provisioned VMs](https://cloud.google.com/kubernetes-engine/docs/how-to/preemptible-vms) when running [Kubeflow Pipelines](https://www.kubeflow.org/docs/pipelines/overview/pipelines-overview/) jobs, to reduce costs. We'll also look at how you can use [Stackdriver Monitoring](https://cloud.google.com/monitoring/docs/) to inspect logs for both current and terminated pipeline operations.
 
 
 Preemptible VMs are [Compute Engine VM](https://cloud.google.com/compute/docs/instances/) instances that last a maximum of 24 hours and provide no availability guarantees. The pricing of preemptible VMs is lower than that of standard Compute Engine VMs.
@@ -180,88 +180,11 @@ At some later point, the training run completes— in the figure below, after th
 </figure>
 
 
-### What's next?
+## What's next?
 
 In this post, I showed how you can use preemptible VMs for your Kubeflow Pipelines jobs in order to reduce costs.
 
 To learn more about Kubeflow, including Kubeflow Pipelines, and to try it out yourself, the [Kubeflow documentation](https://www.kubeflow.org/docs/) and [examples repo](https://github.com/kubeflow/examples) are good starting points.
 You might also be interested in this recent [Kubeflow Community meeting presentation](https://www.youtube.com/watch?v=fiFk5FB7il8) on what's new in the Kubeflow 0.6 release.
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+You may also want to take a look at the [‘lightweight’ Kubeflow Pipelines deployer](https://github.com/kubeflow/pipelines/tree/master/manifests/kustomize), which allows someone who is not a GCP Project-level admin to deploy Kubeflow Pipelines onto an existing cluster.
