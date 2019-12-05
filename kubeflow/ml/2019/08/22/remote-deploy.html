@@ -10,8 +10,8 @@
   <meta name="description" content="If you’ve used Kubeflow, you may know that its Jupyter notebooks installation makes it easy to deploy a Kubeflow Pipeline directly from a notebook, using the...">
 
   <link rel="stylesheet" href="/css/main.css">
-  <link rel="canonical" href="http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html">
-  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://amygdala.github.io/feed.xml" />
+  <link rel="canonical" href="http://localhost:4000/kubeflow/ml/2019/08/22/remote-deploy.html">
+  <link rel="alternate" type="application/rss+xml" title="Amy on GCP" href="http://localhost:4000/feed.xml" />
 </head>
 
 
@@ -140,10 +140,11 @@ The <a href="https://www.kubeflow.org/docs/pipelines/pipelines-quickstart/">Pipe
 The example shows the GCF function being triggered by the addition or update of a <a href="https://cloud.google.com/storage">GCS (Google Cloud Storage)</a> object, but there are many other <a href="https://cloud.google.com/functions/docs/calling/">GCF triggers</a> that you can use.</p>
   </li>
   <li>
-    <p><a href="https://github.com/kubeflow/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-port-forward.ipynb">kfp_remote_deploy-port-forward.ipynb</a> walks through how to connect via port-forwarding to the cluster. <br />
-<strong>Note</strong>: port-forwarding is discouraged in a production context.</p>
+    <p><a href="https://github.com/kubeflow/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-port-forward.ipynb">kfp_remote_deploy-port-forward.ipynb</a> walks through how to connect via port-forwarding to the cluster.</p>
   </li>
 </ul>
+
+<p><strong>Note</strong>: port-forwarding is discouraged in a production context.</p>
 
 <h2 id="using-cloud-function-triggers">Using Cloud Function triggers</h2>
 

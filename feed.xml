@@ -3,11 +3,278 @@
   <channel>
     <title>Amy on GCP</title>
     <description></description>
-    <link>http://amygdala.github.io/</link>
-    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Sun, 15 Sep 2019 12:49:47 -0700</pubDate>
-    <lastBuildDate>Sun, 15 Sep 2019 12:49:47 -0700</lastBuildDate>
+    <link>http://localhost:4000/</link>
+    <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Thu, 05 Dec 2019 11:02:34 -0800</pubDate>
+    <lastBuildDate>Thu, 05 Dec 2019 11:02:34 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
+    
+      <item>
+        <title>AutoML Tables: Exporting and serving your trained model to Cloud Run</title>
+        <description>&lt;p&gt;Google Cloud’s &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/&quot;&gt;AutoML Tables&lt;/a&gt; lets you automatically build and deploy state-of-the-art machine learning models using your own structured data.
+Recently, Tables launched a feature to let you &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/model-export&quot;&gt;export&lt;/a&gt; your full custom model, packaged such that you can serve it via a Docker container. This lets you serve your models anywhere that you can run a container.&lt;/p&gt;
+
+&lt;p&gt;In this example, we’ll show how you can package an exported Tables model to serve on &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;Cloud Run&lt;/a&gt;. With Cloud Run, your model serving automatically scales out with traffic, and scales to 0 when it’s not being used.  We’ll also show how you can examine your trained custom model in &lt;a href=&quot;https://www.tensorflow.org/tensorboard&quot;&gt;TensorBoard&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;For the following steps, the &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/&quot;&gt;documentation&lt;/a&gt; provides more detail.
+We’ll use the &lt;a href=&quot;https://console.cloud.google.com/automl-tables/datasets&quot;&gt;Cloud Console UI&lt;/a&gt;, but all of these steps could also be accomplished by accessing the API via the command line or using the &lt;a href=&quot;https://googleapis.dev/python/automl/latest/gapic/v1beta1/tables.html&quot;&gt;AutoML Tables client libraries&lt;/a&gt;.&lt;/p&gt;
+
+&lt;h2 id=&quot;create-a-dataset-and-edit-its-schema&quot;&gt;Create a Dataset and edit its schema&lt;/h2&gt;
+
+&lt;p&gt;The first step in training a Tables model is to create a &lt;em&gt;dataset&lt;/em&gt;, using your data.
+For this example, we’ll use data that is essentially a join of the &lt;a href=&quot;https://console.cloud.google.com/bigquery?p=bigquery-public-data&amp;amp;d=london_bicycles&amp;amp;page=dataset&quot;&gt;London Bikes&lt;/a&gt; and &lt;a href=&quot;https://console.cloud.google.com/bigquery?p=bigquery-public-data&amp;amp;d=noaa_gsod&amp;amp;page=dataset&quot;&gt;NOAA weather&lt;/a&gt; public datasets in BigQuery, with some additional processing to derive additional GIS and day-of-week fields. (If you like, you can follow along with your own tabular dataset instead, but you will need to construct your own prediction instances as well).&lt;/p&gt;
+
+&lt;p&gt;Visit the &lt;a href=&quot;https://console.cloud.google.com/automl-tables/datasets&quot;&gt;Tables page&lt;/a&gt; in the Cloud Console, and enable the API as necessary.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/enable_api.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/enable_api.png&quot; width=&quot;40%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Enable the AutoML Tables API.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;Then, create a new Tables &lt;em&gt;dataset&lt;/em&gt;.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/create_dataset.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/create_dataset.png&quot; width=&quot;50%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Create a new Tables dataset.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;Import your data into the dataset. To ingest the example data, select “Import data from BigQuery”.  Then, as shown in the figure below, use &lt;code class=&quot;highlighter-rouge&quot;&gt;aju-dev-demos&lt;/code&gt; as the BigQuery Project ID, &lt;code class=&quot;highlighter-rouge&quot;&gt;london_bikes_weather&lt;/code&gt; as the dataset ID, and &lt;code class=&quot;highlighter-rouge&quot;&gt;bikes_weather&lt;/code&gt; as the table name.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/import_data.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/import_data.png&quot; width=&quot;60%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Import the &lt;code&gt;bikes_weather&lt;/code&gt; BigQuery table into the dataset.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h3 id=&quot;edit-the-datasets-schema&quot;&gt;Edit the dataset’s schema&lt;/h3&gt;
+
+&lt;p&gt;Once the import is complete, edit the dataset schema. We’ll need to change a few of the inferred types. Make sure your schema reflects that in the figure below. In particular, change &lt;code class=&quot;highlighter-rouge&quot;&gt;bike_id&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;end_station_id&lt;/code&gt;, &lt;code class=&quot;highlighter-rouge&quot;&gt;start_station_id&lt;/code&gt;, and &lt;code class=&quot;highlighter-rouge&quot;&gt;loc_cross&lt;/code&gt; to be of type &lt;em&gt;Categorical&lt;/em&gt;. (Note that useful stats are generated for the columns).&lt;/p&gt;
+
+&lt;p&gt;Then, we’ll set &lt;code class=&quot;highlighter-rouge&quot;&gt;duration&lt;/code&gt; as the &lt;em&gt;target&lt;/em&gt; column.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/schema.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/schema.png&quot; width=&quot;90%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Adjust the dataset schema.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h2 id=&quot;train-and-export-your-tables-model&quot;&gt;Train and export your Tables model&lt;/h2&gt;
+
+&lt;p&gt;Now you’re ready to train a model on that dataset.  After the model is trained, you will be able not only to deploy it to the Cloud AI Platform, where you can access it via API, but also can &lt;em&gt;export&lt;/em&gt; it to run in a container.&lt;/p&gt;
+
+&lt;h3 id=&quot;train-the-model&quot;&gt;Train the model&lt;/h3&gt;
+
+&lt;p&gt;We’ll train a model to predict ride  &lt;code class=&quot;highlighter-rouge&quot;&gt;duration&lt;/code&gt; given all the other dataset inputs.  So, we’ll be training a &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/problem-types&quot;&gt;regression&lt;/a&gt; model.
+For this example, enter a training budget of 1 hours, and include all the other feature columns.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/train.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/train.png&quot; width=&quot;50%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Train a model to predict ride &lt;code&gt;duration&lt;/code&gt;.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h3 id=&quot;export-the-trained-model&quot;&gt;Export the trained model&lt;/h3&gt;
+
+&lt;p&gt;Once the model is trained, we’ll export the result, so that it can be served from any environment in which you can run a container.  (Note that you could also &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/predict&quot;&gt;deploy&lt;/a&gt; your model to the Cloud AI Platform for online prediction).&lt;/p&gt;
+
+&lt;p&gt;You’ll find the export option under &lt;strong&gt;TEST &amp;amp; USE&lt;/strong&gt;.  (See the &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/model-export&quot;&gt;documentation&lt;/a&gt; for detail on the export process).
+You’ll need to create a &lt;em&gt;regional&lt;/em&gt; GCS bucket, in the same region as your model. You also might want to create a sub-folder for the model export in the GCS bucket, so that if you have multiple exports, you can keep track of .  An easy way to create the folder is via the web UI. Here, I’ve created a &lt;code class=&quot;highlighter-rouge&quot;&gt;model_export_1&lt;/code&gt; sub-folder.&lt;/p&gt;
+
+&lt;p&gt;Click the “Container” card to export your trained model to be run from a Docker container.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/export1.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/export1.png&quot; width=&quot;60%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Click the &quot;Container&quot; card to export your trained model to be run from a Docker container.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;Browse to select the GCS folder into which you want to export your model, then click the &lt;strong&gt;EXPORT&lt;/strong&gt; button.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/export2-2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/export2-2.png&quot; width=&quot;60%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Browse to the GCS folder into which you want to export your model.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;When the export is finished, create a local directory to hold your model, e.g. something like &lt;code class=&quot;highlighter-rouge&quot;&gt;bikes_weather&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Copy the download command in the cloud console, which will look something like the following:
+&lt;code class=&quot;highlighter-rouge&quot;&gt;gsutil cp -r gs://&amp;lt;your-bucket&amp;gt;/model_export_1//* ./download_dir&lt;/code&gt;&lt;/p&gt;
+
+&lt;p&gt;Edit this command: add quotes around the &lt;code class=&quot;highlighter-rouge&quot;&gt;gs&lt;/code&gt; URI, and remove one of the end slashes.  Then edit &lt;code class=&quot;highlighter-rouge&quot;&gt;download_dir&lt;/code&gt; to point to the directory you created.  The result should look something like the following. Run it from the parent directory of your &lt;code class=&quot;highlighter-rouge&quot;&gt;bikes_weather&lt;/code&gt; directory:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gsutil cp -r &lt;span class=&quot;s1&quot;&gt;'gs://&amp;lt;your-bucket&amp;gt;/model_export_1/*'&lt;/span&gt; ./bikes_weather
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;The exported model will be copied to &lt;code class=&quot;highlighter-rouge&quot;&gt;./bikes_weather&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;Note&lt;/strong&gt;: to run &lt;code class=&quot;highlighter-rouge&quot;&gt;gsutil&lt;/code&gt;, you will need &lt;a href=&quot;https://cloud.google.com/sdk/install&quot;&gt;&lt;code class=&quot;highlighter-rouge&quot;&gt;gcloud&lt;/code&gt;&lt;/a&gt; installed. You can run these commands from the &lt;a href=&quot;https://cloud.google.com/shell/&quot;&gt;Cloud Shell&lt;/a&gt; instead of your local machine if you don’t want to install the SDK locally.&lt;/p&gt;
+
+&lt;h2 id=&quot;test-your-exported-model-locally&quot;&gt;Test your exported model locally&lt;/h2&gt;
+
+&lt;p&gt;Once you’ve downloaded your model, you can run and test it locally. This provides a good sanity check before deploying to Cloud Run.
+The process is described in the &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/model-export&quot;&gt;documentation&lt;/a&gt;; we’ll summarize here.&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;change to the &lt;code class=&quot;highlighter-rouge&quot;&gt;bikes_weather&lt;/code&gt; directory (or whatever you named it). You should see a &lt;code class=&quot;highlighter-rouge&quot;&gt;model_export&lt;/code&gt; subdirectory, the result of your download.&lt;/li&gt;
+  &lt;li&gt;rename the subdirectory as described in the &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/model-export#run-server&quot;&gt;documentation&lt;/a&gt;, to remove the timestamp suffix.&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;Then, create and run a container to serve your new trained model.  Edit the following to point to your renamed directory path:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker run -v &lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;&lt;span class=&quot;nb&quot;&gt;pwd&lt;/span&gt;&lt;span class=&quot;sb&quot;&gt;`&lt;/span&gt;/model-export/tbl/&amp;lt;your_renamed_directory&amp;gt;:/models/default/0000001 -p 8080:8080 -it gcr.io/cloud-automl-tables-public/model_server
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+&lt;p&gt;This starts up a model server to which you can send requests.  Note that we’re using the &lt;code class=&quot;highlighter-rouge&quot;&gt;gcr.io/cloud-automl-tables-public/model_server&lt;/code&gt; container image and mounting our local directory.&lt;/p&gt;
+
+&lt;p&gt;Next, &lt;a href=&quot;https://raw.githubusercontent.com/amygdala/code-snippets/master/ml/automl/tables/model_export/instances.json&quot;&gt;download this &lt;code class=&quot;highlighter-rouge&quot;&gt;instances.json&lt;/code&gt;&lt;/a&gt; file.  If you take a look at it, you can see that it holds data for three prediction instances.
+From the directory where you placed &lt;code class=&quot;highlighter-rouge&quot;&gt;instances.json&lt;/code&gt;, run:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;curl -X POST --data @instances.json http://localhost:8080/predict
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;It may take a second or two for the first request to return, but subsequent requests will be faster.  You’ll get back predictions for all of the instances in the &lt;code class=&quot;highlighter-rouge&quot;&gt;json&lt;/code&gt; file.
+The actual duration for the third instance is 1200.&lt;/p&gt;
+
+&lt;h2 id=&quot;view-information-about-your-exported-model-in-tensorboard&quot;&gt;View information about your exported model in TensorBoard&lt;/h2&gt;
+
+&lt;p&gt;You can view your exported custom model in &lt;a href=&quot;https://www.tensorflow.org/tensorboard&quot;&gt;TensorBoard&lt;/a&gt;.  This requires a conversion step.
+You will need to have TensorFlow 1.14 or 1.15 installed to run the the conversion script.&lt;/p&gt;
+
+&lt;p&gt;Then, download &lt;a href=&quot;https://github.com/amygdala/code-snippets/blob/master/ml/automl/tables/model_export/convert_oss.py&quot;&gt;this script&lt;/a&gt;, e.g. via &lt;code class=&quot;highlighter-rouge&quot;&gt;curl -O https://raw.githubusercontent.com/amygdala/code-snippets/master/ml/automl/tables/model_export/convert_oss.py&lt;/code&gt;, to the parent directory of &lt;code class=&quot;highlighter-rouge&quot;&gt;model_export&lt;/code&gt;.  Create a directory for the output (e.g. &lt;code class=&quot;highlighter-rouge&quot;&gt;converted_export&lt;/code&gt;), then run the script as follows:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;mkdir converted_export
+python ./convert_oss.py --saved_model ./model-export/tbl/&amp;lt;your_renamed_directory&amp;gt;/saved_model.pb --output_dir converted_export
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then, point TensorBoard to the converted model graph:&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;tensorboard --logdir&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;converted_export
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;You will see a rendering of the model graph, and can pan and zoom to view model sub-graphs in more detail.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb1.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb1.png&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;You can view an exported custom Tables model in Tensorboard.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb2.png&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb3.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/tables_export/tb3.png&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Zooming in to see part of the model graph in more detail.&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h2 id=&quot;create-a-google-cloud-run-service-based-on-your-exported-model&quot;&gt;Create a Google Cloud Run service based on your exported model&lt;/h2&gt;
+
+&lt;p&gt;At this point, we have a trained model that we’ve exported and tested locally.  Now we are almost ready to deploy it to &lt;a href=&quot;https://cloud.google.com/run/docs/&quot;&gt;Cloud Run&lt;/a&gt;.
+As the last step of prep, we’ll create a container image that uses &lt;code class=&quot;highlighter-rouge&quot;&gt;gcr.io/cloud-automl-tables-public/model_server&lt;/code&gt; as a base image and &lt;code class=&quot;highlighter-rouge&quot;&gt;ADD&lt;/code&gt;s the model directory, and push that image to the &lt;a href=&quot;https://cloud.google.com/container-registry/&quot;&gt;Google Container Registry&lt;/a&gt;, so that Cloud Run can access it.&lt;/p&gt;
+
+&lt;h3 id=&quot;build-a-container-to-use-for-cloud-run&quot;&gt;Build a container to use for Cloud Run&lt;/h3&gt;
+
+&lt;p&gt;In the same &lt;code class=&quot;highlighter-rouge&quot;&gt;bikes_weather&lt;/code&gt; directory that holds the &lt;code class=&quot;highlighter-rouge&quot;&gt;model_export&lt;/code&gt; subdir, create a file called &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt; that contains the following two lines.  The template is &lt;a href=&quot;https://raw.githubusercontent.com/amygdala/code-snippets/master/ml/automl/tables/model_export/Dockerfile.template&quot;&gt;here&lt;/a&gt; as well; &lt;strong&gt;edit the second line to use your correct path to the exported model, the same path that you used above when running locally&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FROM gcr.io/cloud-automl-tables-public/model_server
+
+ADD model-export/tbl/YOUR_RENAMED_DIRECTORY/models/default/0000001
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then, build a container from the &lt;code class=&quot;highlighter-rouge&quot;&gt;Dockerfile&lt;/code&gt;.  In this example we’ll call it &lt;code class=&quot;highlighter-rouge&quot;&gt;bw-serve&lt;/code&gt;.
+You can do this as follows (&lt;strong&gt;replace &lt;code class=&quot;highlighter-rouge&quot;&gt;[PROJECT_ID]&lt;/code&gt; with the id of your project&lt;/strong&gt;):&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker build . -t gcr.io/[PROJECT_ID]/bw-serve
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;Then push it to the Google Container Registry (again replacing &lt;code class=&quot;highlighter-rouge&quot;&gt;[PROJECT_ID]&lt;/code&gt; with the id of your project):&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;docker push gcr.io/[PROJECT_ID]/bw-serve
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;(If you get an error, you may need to configure Docker to use gcloud to &lt;a href=&quot;https://cloud.google.com/container-registry/docs/quickstart#add_the_image_to&quot;&gt;authenticate requests to Container Registry&lt;/a&gt;.)&lt;/p&gt;
+
+&lt;p&gt;Alternately, you can use &lt;a href=&quot;https://cloud.google.com/cloud-build/docs/quickstart-docker&quot;&gt;Cloud Build&lt;/a&gt; to build the container instead, as follows:&lt;/p&gt;
+
+&lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;gcloud builds submit --tag gcr.io/[PROJECT_ID]/bw-serve .
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;h3 id=&quot;create-your-cloud-run-service&quot;&gt;Create your Cloud Run service&lt;/h3&gt;
+
+&lt;p&gt;Now we’re ready to deploy the container we built to Cloud Run, where we can scalably serve it for predictions.  Visit the &lt;a href=&quot;https://console.cloud.google.com/marketplace/details/google-cloud-platform/cloud-run&quot;&gt;Cloud Run page in the console&lt;/a&gt;. (Click the “START USING..” button if necessary).  Then click the &lt;strong&gt;CREATE SERVICE&lt;/strong&gt; button.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/cloud_run1%202.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/cloud_run1%202.png&quot; width=&quot;40%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Creating a Cloud Run Service&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;p&gt;For the container URL, enter the name of the container that you just built above. Select the “Cloud Run (fully managed)” option.  Create a service name (it can be anything you like). Select the &lt;strong&gt;Require Authentication&lt;/strong&gt; option.
+Then, click on &lt;strong&gt;SHOW OPTIONAL REVISION SETTINGS&lt;/strong&gt;.  Change the &lt;strong&gt;Memory allocated&lt;/strong&gt; option to &lt;strong&gt;2GiB&lt;/strong&gt;.
+Leave the rest of the defaults as they are, and click &lt;strong&gt;CREATE&lt;/strong&gt;.&lt;/p&gt;
+
+&lt;figure&gt;
+&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/automl/cloud_run2.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/automl/cloud_run2.png&quot; width=&quot;50%&quot; /&gt;&lt;/a&gt;
+&lt;figcaption&gt;&lt;br /&gt;&lt;i&gt;Set your service instances to use 2GiB of memory&lt;/i&gt;&lt;/figcaption&gt;
+&lt;/figure&gt;
+
+&lt;h3 id=&quot;send-prediction-requests-to-the-cloud-run-service&quot;&gt;Send prediction requests to the Cloud Run service&lt;/h3&gt;
+
+&lt;p&gt;Once your Cloud Run service is deployed, you can send prediction requests to it.  Your new service will have a URL that starts with your service name (and ends with &lt;code class=&quot;highlighter-rouge&quot;&gt;run.app&lt;/code&gt;). You can send JSON predictions to the Cloud Run service just as with the local server you tested earlier; but with Cloud Run, the service will scale up and down based on demand.&lt;/p&gt;
+
+&lt;p&gt;Assuming you selected the &lt;strong&gt;Require Authentication&lt;/strong&gt; option, you can make prediction requests like this:&lt;/p&gt;
+
+&lt;div class=&quot;language-bash highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;curl -X POST -H &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+&lt;span class=&quot;s2&quot;&gt;&quot;Authorization: Bearer &lt;/span&gt;&lt;span class=&quot;k&quot;&gt;$(&lt;/span&gt;gcloud auth print-identity-token&lt;span class=&quot;k&quot;&gt;)&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;&lt;/span&gt; --data @./instances.json &lt;span class=&quot;se&quot;&gt;\&lt;/span&gt;
+https://&amp;lt;your-service-url&amp;gt;/predict
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;(If you set up your Cloud Run service endpoint so that it does not require authentication, you don’t need to include the authorization header in your &lt;code class=&quot;highlighter-rouge&quot;&gt;curl&lt;/code&gt; request).&lt;/p&gt;
+
+&lt;h2 id=&quot;whats-next&quot;&gt;What’s next?&lt;/h2&gt;
+
+&lt;p&gt;In this post, we walked through how to export a custom AutoML Tables trained model, view model information in TensorBoard, and build a container image that lets you serve the model from any environment.  Then we showed how you can deploy that image to Cloud Run for scalable serving.&lt;/p&gt;
+
+&lt;p&gt;Once you’ve built a model-serving container image, it’s easy to deploy it to other environments as well.  For example, if you have installed &lt;a href=&quot;https://github.com/knative/serving&quot;&gt;Knative serving&lt;/a&gt; on a &lt;a href=&quot;https://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt; cluster, you can create a Knative &lt;em&gt;service&lt;/em&gt; like this, using the same container image (again replacing &lt;code class=&quot;highlighter-rouge&quot;&gt;[PROJECT_ID]&lt;/code&gt; with your project):&lt;/p&gt;
+
+&lt;div class=&quot;language-yaml highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;s&quot;&gt;apiVersion&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;serving.knative.dev/v1&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;kind&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;Service&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;metadata&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;name&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;bikes-weather&lt;/span&gt;
+&lt;span class=&quot;s&quot;&gt;spec&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+  &lt;span class=&quot;s&quot;&gt;template&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+    &lt;span class=&quot;s&quot;&gt;spec&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+      &lt;span class=&quot;s&quot;&gt;containers&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt;
+        &lt;span class=&quot;pi&quot;&gt;-&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;image&lt;/span&gt;&lt;span class=&quot;pi&quot;&gt;:&lt;/span&gt; &lt;span class=&quot;s&quot;&gt;gcr.io/[PROJECT_ID]/bw-serve&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;
+&lt;/div&gt;
+
+&lt;p&gt;(While our example model fits on a 2GiB Cloud Run instance, it’s possible that other of your models may be too large for the managed Cloud Run service, and serving it via Kubernetes/&lt;a href=&quot;https://cloud.google.com/kubernetes-engine/&quot;&gt;GKE&lt;/a&gt; is a good alternative).&lt;/p&gt;
+
+&lt;p&gt;If you’re curious about the details of your custom model, you can use Stackdriver Logging to &lt;a href=&quot;https://cloud.google.com/automl-tables/docs/logging&quot;&gt;view information about your AutoML Tables model&lt;/a&gt;. Using Logging, you can see the final model hyperparameters as well as the hyperparameters and object values used during model training and tuning.&lt;/p&gt;
+
+&lt;p&gt;You may also be interested in exploring the updated &lt;a href=&quot;https://googleapis.dev/python/automl/latest/gapic/v1beta1/tables.html&quot;&gt;AutoML Tables client libraries&lt;/a&gt;, which make it easy for you to &lt;a href=&quot;https://github.com/GoogleCloudPlatform/python-docs-samples/tree/master/tables/automl/notebooks&quot;&gt;train and use Tables programmatically&lt;/a&gt;, or reading about how to create a &lt;em&gt;contextual bandit&lt;/em&gt; model pipeline &lt;a href=&quot;https://cloud.google.com/blog/products/ai-machine-learning/how-to-build-better-contextual-bandits-machine-learning-models&quot;&gt;using AutoML Tables, without needing a specialist for tuning or feature engineering&lt;/a&gt;.&lt;/p&gt;
+
+</description>
+        <pubDate>Thu, 05 Dec 2019 00:00:00 -0800</pubDate>
+        <link>http://localhost:4000/automl/ml/2019/12/05/automl_tables_export.html</link>
+        <guid isPermaLink="true">http://localhost:4000/automl/ml/2019/12/05/automl_tables_export.html</guid>
+        
+        <category>automl</category>
+        
+        <category>cloud_ml</category>
+        
+        
+        <category>AutoML</category>
+        
+        <category>ML</category>
+        
+      </item>
     
       <item>
         <title>Remote deployment of Kubeflow Pipelines</title>
@@ -41,10 +308,11 @@ The &lt;a href=&quot;https://www.kubeflow.org/docs/pipelines/pipelines-quickstar
 The example shows the GCF function being triggered by the addition or update of a &lt;a href=&quot;https://cloud.google.com/storage&quot;&gt;GCS (Google Cloud Storage)&lt;/a&gt; object, but there are many other &lt;a href=&quot;https://cloud.google.com/functions/docs/calling/&quot;&gt;GCF triggers&lt;/a&gt; that you can use.&lt;/p&gt;
   &lt;/li&gt;
   &lt;li&gt;
-    &lt;p&gt;&lt;a href=&quot;https://github.com/kubeflow/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-port-forward.ipynb&quot;&gt;kfp_remote_deploy-port-forward.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster. &lt;br /&gt;
-&lt;strong&gt;Note&lt;/strong&gt;: port-forwarding is discouraged in a production context.&lt;/p&gt;
+    &lt;p&gt;&lt;a href=&quot;https://github.com/kubeflow/examples/blob/cookbook/cookbook/pipelines/notebooks/kfp_remote_deploy-port-forward.ipynb&quot;&gt;kfp_remote_deploy-port-forward.ipynb&lt;/a&gt; walks through how to connect via port-forwarding to the cluster.&lt;/p&gt;
   &lt;/li&gt;
 &lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;Note&lt;/strong&gt;: port-forwarding is discouraged in a production context.&lt;/p&gt;
 
 &lt;h2 id=&quot;using-cloud-function-triggers&quot;&gt;Using Cloud Function triggers&lt;/h2&gt;
 
@@ -64,8 +332,8 @@ For example, you might want to automatically kick off an ML training pipeline ru
 
 </description>
         <pubDate>Thu, 22 Aug 2019 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</guid>
+        <link>http://localhost:4000/kubeflow/ml/2019/08/22/remote-deploy.html</link>
+        <guid isPermaLink="true">http://localhost:4000/kubeflow/ml/2019/08/22/remote-deploy.html</guid>
         
         <category>kubeflow</category>
         
@@ -260,8 +528,8 @@ You might also be interested in this recent &lt;a href=&quot;https://www.youtube
 &lt;p&gt;You may also want to take a look at the &lt;a href=&quot;https://github.com/kubeflow/pipelines/tree/master/manifests/kustomize&quot;&gt;‘lightweight’ Kubeflow Pipelines deployer&lt;/a&gt;, which allows someone who is not a GCP Project-level admin to deploy Kubeflow Pipelines onto an existing cluster.&lt;/p&gt;
 </description>
         <pubDate>Sun, 18 Aug 2019 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</guid>
+        <link>http://localhost:4000/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
+        <guid isPermaLink="true">http://localhost:4000/kubeflow/ml/2019/08/18/kfp-preemptible.html</guid>
         
         <category>kubeflow</category>
         
@@ -528,8 +796,8 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 &lt;p&gt;The example also showed how easy it is to leverage BigQuery queries (in particular I highlighted some of the the BigQuery GIS functions) to do some feature pre-processing.&lt;/p&gt;
 </description>
         <pubDate>Mon, 06 May 2019 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</guid>
+        <link>http://localhost:4000/automl/ml/2019/05/06/automl-tables.html</link>
+        <guid isPermaLink="true">http://localhost:4000/automl/ml/2019/05/06/automl-tables.html</guid>
         
         <category>automl</category>
         
@@ -573,8 +841,8 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 &lt;p&gt;&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
 </description>
         <pubDate>Mon, 15 Apr 2019 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</guid>
+        <link>http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</guid>
         
         <category>cloud_ml</category>
         
@@ -938,8 +1206,8 @@ You can list your model information using &lt;code class=&quot;highlighter-rouge
 
 </description>
         <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        <link>http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
         <category>cmle</category>
         
@@ -1243,8 +1511,8 @@ launch template-based pipelines.&lt;/p&gt;
 your own analytics — via App Engine apps or otherwise. We look forward to hearing more about what you build!&lt;/p&gt;
 </description>
         <pubDate>Tue, 24 Oct 2017 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
+        <link>http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1450,8 +1718,8 @@ We look forward to hearing more about what you build!&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        <link>http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1661,8 +1929,8 @@ flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/
 &lt;/ul&gt;
 </description>
         <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
+        <link>http://localhost:4000/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/2017/02/03/transfer_learning.html</guid>
         
         <category>machine_learning</category>
         
@@ -1768,8 +2036,8 @@ Or, you could include the wiki URLs in the results for any entities that have th
 
 </description>
         <pubDate>Sat, 14 Jan 2017 00:00:00 -0800</pubDate>
-        <link>http://amygdala.github.io/ml/2017/01/14/nlapi.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/01/14/nlapi.html</guid>
+        <link>http://localhost:4000/ml/2017/01/14/nlapi.html</link>
+        <guid isPermaLink="true">http://localhost:4000/ml/2017/01/14/nlapi.html</guid>
         
         <category>machine_learning</category>
         
@@ -1778,56 +2046,6 @@ Or, you could include the wiki URLs in the results for any entities that have th
         <category>natural_langage_api</category>
         
         <category>kubernetes</category>
-        
-        
-        <category>ML</category>
-        
-      </item>
-    
-      <item>
-        <title>Using the Cloud Vision API with Twilio Messaging on Kubernetes</title>
-        <description>&lt;p&gt;The &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Google Cloud Vision API&lt;/a&gt; has just moved to GA (General Availability) status.&lt;/p&gt;
-
-&lt;p&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/cat_and_laptop.jpg&quot; width=&quot;300&quot; /&gt;&lt;/p&gt;
-
-&lt;p&gt;The Vision API lets you create applications that can classify images into thousands of categories (e.g., “sailboat”, “lion”… or &lt;strong&gt;cat&lt;/strong&gt; and &lt;strong&gt;laptop&lt;/strong&gt; as above); can detect faces and other objects in images (including predicting “sentiment”); can perform OCR (detection of text in images); can detect landmarks (like the Eiffel Tower); can detect logos; and can moderate for offensive content.
-You can &lt;a href=&quot;https://www.youtube.com/watch?v=ud2Ipnq0pTU&quot;&gt;see Jeff Dean demoing the Vision API in this video&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision&quot;&gt;This github repo&lt;/a&gt; has a number of Vision API examples, written in different languages, and showing off different aspects of the Cloud Vision API. Some of the examples are simple scripts, and others are a bit more complex.&lt;/p&gt;
-
-&lt;p&gt;A &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-k8s&quot;&gt;new example called ‘twilio-k8s’&lt;/a&gt; has just been added to the repo. It shows
-how to run the
-&lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/tree/master/python/twilio/twilio-labels&quot;&gt;“What’s That?” app&lt;/a&gt; (built by &lt;a href=&quot;http://www.blog.juliaferraioli.com/2016/02/exploring-world-using-vision-twilio.html&quot;&gt;Julia
-Ferraioli&lt;/a&gt;), on
-&lt;a href=&quot;http://kubernetes.io/&quot;&gt;Kubernetes&lt;/a&gt;.&lt;/p&gt;
-
-&lt;p&gt;The app uses &lt;a href=&quot;https://www.twilio.com&quot;&gt;Twilio&lt;/a&gt; to allow images to be texted to a given number,
-then uses the &lt;a href=&quot;https://cloud.google.com/vision/&quot;&gt;Cloud Vision API&lt;/a&gt; to find labels in the image
-(classify what’s in the image) and return the detected labels as a reply text.
-Because the app is running on Kubernetes, it’s easy to &lt;strong&gt;scale up the app&lt;/strong&gt; to support a large number
-of requests.&lt;/p&gt;
-
-&lt;p&gt;Once you’ve set up the app on your Google Container Engine (or Kubernetes) cluster, and set up your Twilio number, you can text images to get content labelings:&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/yard.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/yard.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;It’s easy to modify your own version of the app to look for additional information in the image.  I’ve in fact modifed my version of the app to look for &lt;em&gt;logos&lt;/em&gt; too. It’s fun to see how well it can do with an incomplete view of a logo:&lt;/p&gt;
-
-&lt;p&gt;&lt;a href=&quot;https://amy-jo.storage.googleapis.com/images/cl_bar.png&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://amy-jo.storage.googleapis.com/images/cl_bar.png&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
-
-&lt;p&gt;After you’ve set up your app, when you’re ready to share it, you can scale up the number of servers running on your Kubernetes cluster so that the app stays responsive.  The example’s &lt;a href=&quot;https://github.com/GoogleCloudPlatform/cloud-vision/blob/master/python/twilio/twilio-k8s/README.md&quot;&gt;README&lt;/a&gt; goes into more detail about how to do all of this.&lt;/p&gt;
-
-&lt;p&gt;For a relatively short time, you can try it out here: (785) 336-5113.&lt;br /&gt;
-This number won’t work indefinitely, though :).&lt;/p&gt;
-
-</description>
-        <pubDate>Fri, 22 Apr 2016 00:00:00 -0700</pubDate>
-        <link>http://amygdala.github.io/ml/2016/04/22/vision-api.html</link>
-        <guid isPermaLink="true">http://amygdala.github.io/ml/2016/04/22/vision-api.html</guid>
-        
-        <category>vision_api</category>
-        
-        <category>machine_learning</category>
         
         
         <category>ML</category>
