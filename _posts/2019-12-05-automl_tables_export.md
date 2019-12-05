@@ -8,9 +8,6 @@ tags: automl cloud_ml
 date: 2019-12-05
 ---
 
-
-## Introduction
-
 Google Cloud’s [AutoML Tables][1] lets you automatically build and deploy state-of-the-art machine learning models using your own structured data.
 Recently, Tables launched a feature to let you [export][2] your full custom model, packaged such that you can serve it via a Docker container. This lets you serve your models anywhere that you can run a container.
 
