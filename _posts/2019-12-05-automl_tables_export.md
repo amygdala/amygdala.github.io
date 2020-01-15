@@ -177,7 +177,7 @@ In the same `bikes_weather` directory that holds the `model_export` subdir, crea
 ```
 FROM gcr.io/cloud-automl-tables-public/model_server
 
-ADD model-export/tbl/YOUR_RENAMED_DIRECTORY/models/default/0000001
+ADD model-export/tbl/YOUR_RENAMED_DIRECTORY /models/default/0000001
 ```
 
 Then, build a container from the `Dockerfile`.  In this example we'll call it `bw-serve`.
