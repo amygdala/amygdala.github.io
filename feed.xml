@@ -3,10 +3,10 @@
   <channel>
     <title>Amy on GCP</title>
     <description></description>
-    <link>http://localhost:4000/</link>
-    <atom:link href="http://localhost:4000/feed.xml" rel="self" type="application/rss+xml"/>
-    <pubDate>Thu, 05 Dec 2019 11:02:34 -0800</pubDate>
-    <lastBuildDate>Thu, 05 Dec 2019 11:02:34 -0800</lastBuildDate>
+    <link>http://amygdala.github.io/</link>
+    <atom:link href="http://amygdala.github.io/feed.xml" rel="self" type="application/rss+xml"/>
+    <pubDate>Wed, 15 Jan 2020 08:06:58 -0800</pubDate>
+    <lastBuildDate>Wed, 15 Jan 2020 08:06:58 -0800</lastBuildDate>
     <generator>Jekyll v3.3.1</generator>
     
       <item>
@@ -179,7 +179,7 @@ As the last step of prep, we’ll create a container image that uses &lt;code cl
 
 &lt;div class=&quot;highlighter-rouge&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;FROM gcr.io/cloud-automl-tables-public/model_server
 
-ADD model-export/tbl/YOUR_RENAMED_DIRECTORY/models/default/0000001
+ADD model-export/tbl/YOUR_RENAMED_DIRECTORY /models/default/0000001
 &lt;/code&gt;&lt;/pre&gt;
 &lt;/div&gt;
 
@@ -262,8 +262,8 @@ https://&amp;lt;your-service-url&amp;gt;/predict
 
 </description>
         <pubDate>Thu, 05 Dec 2019 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/automl/ml/2019/12/05/automl_tables_export.html</link>
-        <guid isPermaLink="true">http://localhost:4000/automl/ml/2019/12/05/automl_tables_export.html</guid>
+        <link>http://amygdala.github.io/automl/ml/2019/12/05/automl_tables_export.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/automl/ml/2019/12/05/automl_tables_export.html</guid>
         
         <category>automl</category>
         
@@ -332,8 +332,8 @@ For example, you might want to automatically kick off an ML training pipeline ru
 
 </description>
         <pubDate>Thu, 22 Aug 2019 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/kubeflow/ml/2019/08/22/remote-deploy.html</link>
-        <guid isPermaLink="true">http://localhost:4000/kubeflow/ml/2019/08/22/remote-deploy.html</guid>
+        <link>http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/22/remote-deploy.html</guid>
         
         <category>kubeflow</category>
         
@@ -528,8 +528,8 @@ You might also be interested in this recent &lt;a href=&quot;https://www.youtube
 &lt;p&gt;You may also want to take a look at the &lt;a href=&quot;https://github.com/kubeflow/pipelines/tree/master/manifests/kustomize&quot;&gt;‘lightweight’ Kubeflow Pipelines deployer&lt;/a&gt;, which allows someone who is not a GCP Project-level admin to deploy Kubeflow Pipelines onto an existing cluster.&lt;/p&gt;
 </description>
         <pubDate>Sun, 18 Aug 2019 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
-        <guid isPermaLink="true">http://localhost:4000/kubeflow/ml/2019/08/18/kfp-preemptible.html</guid>
+        <link>http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/kubeflow/ml/2019/08/18/kfp-preemptible.html</guid>
         
         <category>kubeflow</category>
         
@@ -796,8 +796,8 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 &lt;p&gt;The example also showed how easy it is to leverage BigQuery queries (in particular I highlighted some of the the BigQuery GIS functions) to do some feature pre-processing.&lt;/p&gt;
 </description>
         <pubDate>Mon, 06 May 2019 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/automl/ml/2019/05/06/automl-tables.html</link>
-        <guid isPermaLink="true">http://localhost:4000/automl/ml/2019/05/06/automl-tables.html</guid>
+        <link>http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/automl/ml/2019/05/06/automl-tables.html</guid>
         
         <category>automl</category>
         
@@ -841,8 +841,8 @@ the &lt;code class=&quot;highlighter-rouge&quot;&gt;trip_total&lt;/code&gt;. Thi
 &lt;p&gt;&lt;a href=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; target=&quot;_blank&quot;&gt;&lt;img src=&quot;https://storage.googleapis.com/amy-jo/images/IMG_8412.jpg&quot; width=&quot;300&quot; /&gt;&lt;/a&gt;&lt;/p&gt;
 </description>
         <pubDate>Mon, 15 Apr 2019 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/cloud%20run/2019/04/15/cr.html</guid>
+        <link>http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/cloud%20run/2019/04/15/cr.html</guid>
         
         <category>cloud_ml</category>
         
@@ -1206,8 +1206,8 @@ You can list your model information using &lt;code class=&quot;highlighter-rouge
 
 </description>
         <pubDate>Fri, 26 Jan 2018 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
+        <link>http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/tensorflow/cloud_ml_engine/2018/01/26/tf.html</guid>
         
         <category>cmle</category>
         
@@ -1511,8 +1511,8 @@ launch template-based pipelines.&lt;/p&gt;
 your own analytics — via App Engine apps or otherwise. We look forward to hearing more about what you build!&lt;/p&gt;
 </description>
         <pubDate>Tue, 24 Oct 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/10/24/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1718,8 +1718,8 @@ We look forward to hearing more about what you build!&lt;/p&gt;
 
 </description>
         <pubDate>Fri, 14 Apr 2017 00:00:00 -0700</pubDate>
-        <link>http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
-        <guid isPermaLink="true">http://localhost:4000/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
+        <link>http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/dataflow/app_engine/2017/04/14/gae_dataflow.html</guid>
         
         <category>dataflow</category>
         
@@ -1929,8 +1929,8 @@ flower dataset’s &lt;code class=&quot;highlighter-rouge&quot;&gt;dict.txt&lt;/
 &lt;/ul&gt;
 </description>
         <pubDate>Fri, 03 Feb 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/02/03/transfer_learning.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/02/03/transfer_learning.html</guid>
+        <link>http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/02/03/transfer_learning.html</guid>
         
         <category>machine_learning</category>
         
@@ -2036,8 +2036,8 @@ Or, you could include the wiki URLs in the results for any entities that have th
 
 </description>
         <pubDate>Sat, 14 Jan 2017 00:00:00 -0800</pubDate>
-        <link>http://localhost:4000/ml/2017/01/14/nlapi.html</link>
-        <guid isPermaLink="true">http://localhost:4000/ml/2017/01/14/nlapi.html</guid>
+        <link>http://amygdala.github.io/ml/2017/01/14/nlapi.html</link>
+        <guid isPermaLink="true">http://amygdala.github.io/ml/2017/01/14/nlapi.html</guid>
         
         <category>machine_learning</category>
         
